@@ -88,7 +88,7 @@ class Task:
     """
 
     name: str
-    samples: Callable[[int | None], list[Sample]]  # (max_samples) -> samples
+    samples: Callable[[int | None, int | None], list[Sample]]  # (max_samples, seed)
     score: Callable[[str, str], float]  # (response, target) -> score
 
 
@@ -261,11 +261,7 @@ async def run_task(
     Returns:
         TaskResult with metrics, sample count, elapsed time, and per-sample data
     """
-    import random
-
-    samples = task.samples(max_samples)
-    if seed is not None:
-        random.Random(seed).shuffle(samples)
+    samples = task.samples(max_samples, seed)
     task_hash = compute_task_hash(samples)
     prompts = [s.prompt for s in samples]
 

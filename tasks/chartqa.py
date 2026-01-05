@@ -59,15 +59,8 @@ def _relaxed_match(response: str, target: str) -> float:
     return 0.0
 
 
-def samples(max_samples: int | None = None) -> list[Sample]:
-    """Load ChartQA samples: ((prompt, [image]), target).
-
-    Args:
-        max_samples: Optional limit on number of samples
-
-    Returns:
-        List of Sample objects
-    """
+def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
+    """Load ChartQA samples: ((prompt, [image]), target)."""
     enable_offline_if_cached("HuggingFaceM4/ChartQA", _CHARTQA_REVISION)
     result: list[Sample] = []
     remaining = max_samples
@@ -81,6 +74,8 @@ def samples(max_samples: int | None = None) -> list[Sample]:
             download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
         )
         assert isinstance(ds, Dataset)
+        if seed is not None:
+            ds = ds.shuffle(seed=seed)
         if remaining is not None:
             ds = ds.select(range(min(remaining, len(ds))))
         for doc in ds:
