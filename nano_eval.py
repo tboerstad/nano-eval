@@ -99,7 +99,7 @@ async def evaluate(
         max_samples: Optional limit on samples per task
         output_path: If provided, write results.json to this directory
         log_samples: If True, also write samples_{task}.jsonl files
-        seed: Optional seed for shuffling samples within each split
+        seed: Optional seed for shuffling samples
     """
     if output_path:
         output_path.mkdir(parents=True, exist_ok=True)
@@ -197,7 +197,7 @@ def main() -> int:
         "--seed",
         type=int,
         default=42,
-        help="Seed for shuffling samples within each split (default: 42)",
+        help="Seed for shuffling samples (default: 42)",
     )
     args = parser.parse_args()
 
