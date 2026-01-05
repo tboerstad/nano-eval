@@ -1,0 +1,20 @@
+{
+  "results": {
+    "gsm8k_cot_llama": {
+      "task": "gsm8k_cot_llama",
+      "task_hash": "d256f7b9603657bd1beba30d671cf01e3d88ae4b4e586ec36f40330ba0f73334",
+      "metrics": {
+        "exact_match": 0.0,
+        "exact_match_stderr": 0.0
+      },
+      "num_samples": 1,
+      "elapsed_seconds": 2.04
+    }
+  },
+  "eval_hash": "2be2536e62c25fca0c0621242a4a56c62617739ca9f4e7dcbba2882c5d016e29",
+  "total_seconds": 2.04,
+  "config": {
+    "model": "deepseek-reasoner",
+    "max_samples": 1
+  }
+}
