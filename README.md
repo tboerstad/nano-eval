@@ -39,22 +39,12 @@ pip install -e .
 ### Command Line
 
 ```bash
-# Evaluate GSM8K math benchmark
-nano-eval \
-    --tasks gsm8k_cot_llama \
-    --model_args model=gpt-4,base_url=http://localhost:8000/v1 \
-    --max_samples 100
-
-# Evaluate ChartQA (multimodal)
-nano-eval \
-    --tasks chartqa \
-    --model_args model=gpt-4-vision,base_url=http://localhost:8000/v1,num_concurrent=4
-
-# Both tasks with generation kwargs
+# Text and Image evals, with custom parameters
 nano-eval \
     --tasks gsm8k_cot_llama,chartqa \
+    --num_concurrent 64 \ # 64 max concurrent requests 
     --model_args model=llama-3,base_url=http://localhost:8000/v1 \
-    --gen_kwargs temperature=0.7,max_tokens=1024 \
+    --gen_kwargs temperature=0.7,max_tokens=1024 # Custom args passed through \
     --output results.json
 ```
 
