@@ -196,7 +196,8 @@ def main() -> int:
     parser.add_argument(
         "--seed",
         type=int,
-        help="Seed for shuffling samples within each split (default: no shuffle)",
+        default=42,
+        help="Seed for shuffling samples within each split (default: 42)",
     )
     args = parser.parse_args()
 
