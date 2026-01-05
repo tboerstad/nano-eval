@@ -7,10 +7,10 @@ Samples are loaded before mocking to avoid respx/proxy conflicts.
 
 import hashlib
 import json
-import sys
 from unittest.mock import patch
 
 import respx
+from click.testing import CliRunner
 from httpx import Response
 
 from core import Task
@@ -79,6 +79,7 @@ class TestE2E:
             score=gsm8k_score,
         )
 
+        runner = CliRunner()
         with respx.mock:
             respx.get("http://test.com/v1/models").mock(
                 return_value=Response(
@@ -89,12 +90,10 @@ class TestE2E:
                 side_effect=api_response
             )
 
-            with (
-                patch.object(
-                    sys,
-                    "argv",
+            with patch.dict("tasks.TASKS", {"gsm8k_cot_llama": task}):
+                result = runner.invoke(
+                    main,
                     [
-                        "nano-eval",
                         "--tasks",
                         "gsm8k_cot_llama",
                         "--base_url",
@@ -105,10 +104,8 @@ class TestE2E:
                         str(tmp_path),
                         "--log_samples",
                     ],
-                ),
-                patch.dict("tasks.TASKS", {"gsm8k_cot_llama": task}),
-            ):
-                main()
+                )
+                assert result.exit_code == 0, result.output
 
         results = json.loads((tmp_path / "results.json").read_text())
         assert results["results"]["gsm8k_cot_llama"]["metrics"]["exact_match"] == 0.7
@@ -148,17 +145,16 @@ class TestE2E:
             name="chartqa", samples=lambda n, seed: real_samples, score=chartqa_score
         )
 
+        runner = CliRunner()
         with respx.mock:
             respx.post("http://test.com/v1/chat/completions").mock(
                 side_effect=api_response
             )
 
-            with (
-                patch.object(
-                    sys,
-                    "argv",
+            with patch.dict("tasks.TASKS", {"chartqa": task}):
+                result = runner.invoke(
+                    main,
                     [
-                        "nano-eval",
                         "--tasks",
                         "chartqa",
                         "--base_url",
@@ -171,10 +167,8 @@ class TestE2E:
                         str(tmp_path),
                         "--log_samples",
                     ],
-                ),
-                patch.dict("tasks.TASKS", {"chartqa": task}),
-            ):
-                main()
+                )
+                assert result.exit_code == 0, result.output
 
         results = json.loads((tmp_path / "results.json").read_text())
         assert results["results"]["chartqa"]["metrics"]["exact_match"] == 0.7

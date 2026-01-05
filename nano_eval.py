@@ -20,7 +20,6 @@ Flow: CLI → APIConfig → evaluate() → TASKS[name]() → JSON
 
 from __future__ import annotations
 
-import argparse
 import asyncio
 import hashlib
 import json
@@ -28,6 +27,7 @@ import logging
 from pathlib import Path
 from typing import TypedDict
 
+import click
 import httpx
 
 from core import APIConfig, LoggedSample, TaskResult, run_task
@@ -140,78 +140,85 @@ async def evaluate(
     return eval_result
 
 
-def main() -> int:
-    """CLI entry point."""
+@click.command()
+@click.option(
+    "--tasks",
+    required=True,
+    help=f"Comma-separated task names (available: {', '.join(TASKS.keys())})",
+)
+@click.option(
+    "--base_url",
+    required=True,
+    help="API base URL (e.g. http://localhost:8000/v1)",
+)
+@click.option(
+    "--model",
+    default=None,
+    help="Model name, auto-detected if API serves only one (e.g. google/gemma-3-4b-it)",
+)
+@click.option("--api_key", default="", help="API authentication key (default: none)")
+@click.option(
+    "--num_concurrent",
+    type=int,
+    default=8,
+    help="Max concurrent requests (default: 8)",
+)
+@click.option(
+    "--max_retries",
+    type=int,
+    default=3,
+    help="Max retries per request (default: 3)",
+)
+@click.option(
+    "--gen_kwargs",
+    default="",
+    help="Generation kwargs as key=value pairs. "
+    "Defaults: temperature=0,max_tokens=256,seed=42. "
+    "User values override defaults (e.g. max_tokens=1024 keeps temperature=0,seed=42)",
+)
+@click.option(
+    "--max_samples", type=int, default=None, help="Max samples per task (default: all)"
+)
+@click.option(
+    "--output_path",
+    default=None,
+    help="Directory for results.json and sample files (e.g. ./results)",
+)
+@click.option(
+    "--log_samples",
+    is_flag=True,
+    help="Write per-sample JSONL files (default: false)",
+)
+@click.option(
+    "--seed",
+    type=int,
+    default=42,
+    help="Seed for shuffling samples (default: 42)",
+)
+def main(
+    tasks: str,
+    base_url: str,
+    model: str | None,
+    api_key: str,
+    num_concurrent: int,
+    max_retries: int,
+    gen_kwargs: str,
+    max_samples: int | None,
+    output_path: str | None,
+    log_samples: bool,
+    seed: int,
+) -> None:
+    """nano-eval - Minimal LLM evaluation (chat/completions models only)."""
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
-    parser = argparse.ArgumentParser(
-        description="nano-eval - Minimal LLM evaluation (chat/completions models only)"
-    )
-    parser.add_argument(
-        "--tasks",
-        required=True,
-        help=f"Comma-separated task names (available: {', '.join(TASKS.keys())})",
-    )
-    parser.add_argument(
-        "--base_url",
-        required=True,
-        help="API base URL (e.g. http://localhost:8000/v1)",
-    )
-    parser.add_argument(
-        "--model",
-        help="Model name, auto-detected if API serves only one (e.g. google/gemma-3-4b-it)",
-    )
-    parser.add_argument(
-        "--api_key", default="", help="API authentication key (default: none)"
-    )
-    parser.add_argument(
-        "--num_concurrent",
-        type=int,
-        default=8,
-        help="Max concurrent requests (default: 8)",
-    )
-    parser.add_argument(
-        "--max_retries",
-        type=int,
-        default=3,
-        help="Max retries per request (default: 3)",
-    )
-    parser.add_argument(
-        "--gen_kwargs",
-        default="",
-        help="Generation kwargs as key=value pairs. "
-        "Defaults: temperature=0,max_tokens=256,seed=42. "
-        "User values override defaults (e.g. max_tokens=1024 keeps temperature=0,seed=42)",
-    )
-    parser.add_argument(
-        "--max_samples", type=int, help="Max samples per task (default: all)"
-    )
-    parser.add_argument(
-        "--output_path",
-        help="Directory for results.json and sample files (e.g. ./results)",
-    )
-    parser.add_argument(
-        "--log_samples",
-        action="store_true",
-        help="Write per-sample JSONL files (default: false)",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="Seed for shuffling samples (default: 42)",
-    )
-    args = parser.parse_args()
-
-    base_url = args.base_url.rstrip("/")
-    model = args.model
+    base_url = base_url.rstrip("/")
 
     if not model:
-        models = _list_models(base_url, args.api_key)
+        models = _list_models(base_url, api_key)
         if len(models) == 1:
             model = models[0]
         else:
-            parser.error(
+            raise click.ClickException(
                 f"Auto-selecting model failed: expected 1 model, found {len(models)}. "
                 "Please specify --model."
             )
@@ -220,29 +227,27 @@ def main() -> int:
     config = APIConfig(
         url=f"{base_url}/chat/completions",
         model=model,
-        api_key=args.api_key,
-        num_concurrent=args.num_concurrent,
-        max_retries=args.max_retries,
-        gen_kwargs={**default_gen_kwargs, **_parse_kwargs(args.gen_kwargs)},
+        api_key=api_key,
+        num_concurrent=num_concurrent,
+        max_retries=max_retries,
+        gen_kwargs={**default_gen_kwargs, **_parse_kwargs(gen_kwargs)},
     )
 
-    task_names = [t.strip() for t in args.tasks.split(",") if t.strip()]
-    output_path = Path(args.output_path) if args.output_path else None
+    task_names = [t.strip() for t in tasks.split(",") if t.strip()]
+    output_path_obj = Path(output_path) if output_path else None
     output = asyncio.run(
         evaluate(
             task_names,
             config,
-            args.max_samples,
-            output_path,
-            args.log_samples,
-            args.seed,
+            max_samples,
+            output_path_obj,
+            log_samples,
+            seed,
         )
     )
 
     print(json.dumps(output, indent=2))
 
-    return 0
-
 
 if __name__ == "__main__":
-    exit(main())
+    main()
