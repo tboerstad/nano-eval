@@ -75,22 +75,20 @@ class Task:
         # Text-only task
         Task(
             name="gsm8k",
-            samples=lambda max_samples, seed: load_samples(max_samples, seed),
+            samples=lambda max_samples: load_samples(max_samples),
             score=lambda response, target: 1.0 if response == target else 0.0,
         )
 
         # Multimodal task
         Task(
             name="chartqa",
-            samples=lambda max_samples, seed: load_chartqa(max_samples, seed),
+            samples=lambda max_samples: load_chartqa(max_samples),
             score=relaxed_match,
         )
     """
 
     name: str
-    samples: Callable[
-        [int | None, int | None], list[Sample]
-    ]  # (max_samples, seed) -> samples
+    samples: Callable[[int | None], list[Sample]]  # (max_samples) -> samples
     score: Callable[[str, str], float]  # (response, target) -> score
 
 
@@ -258,12 +256,16 @@ async def run_task(
         task: Task definition with samples loader and scoring function
         config: API configuration (includes gen_kwargs for temperature, max_tokens, etc.)
         max_samples: Optional limit on number of samples
-        seed: Optional seed for shuffling samples within each split
+        seed: Optional seed for shuffling sample order
 
     Returns:
         TaskResult with metrics, sample count, elapsed time, and per-sample data
     """
-    samples = task.samples(max_samples, seed)
+    import random
+
+    samples = task.samples(max_samples)
+    if seed is not None:
+        random.Random(seed).shuffle(samples)
     task_hash = compute_task_hash(samples)
     prompts = [s.prompt for s in samples]
 
