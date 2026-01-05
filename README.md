@@ -99,6 +99,5 @@ print(f"ChartQA: {result['metrics']}")
 }
 ```
 
-This tool is inspired by, and borrows code from,
-one of the industry standard for full, comprehensive evals: [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness).
+This tool is inspired and borrows from: [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness).
 
