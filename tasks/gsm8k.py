@@ -114,7 +114,8 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
             revision=_GSM8K_REVISION,
             download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
         )
-        assert isinstance(ds, Dataset)
+        if not isinstance(ds, Dataset):
+            raise TypeError(f"Expected Dataset, got {type(ds).__name__}")
         if seed is not None:
             ds = ds.shuffle(seed=seed)
         if remaining is not None:

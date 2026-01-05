@@ -68,10 +68,26 @@ def _parse_kwargs(s: str) -> dict[str, str | int | float]:
 
 def _list_models(base_url: str, api_key: str = "") -> list[str]:
     """Fetch available models from the API's /models endpoint."""
+    url = f"{base_url}/models"
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-    resp = httpx.get(f"{base_url}/models", headers=headers, timeout=30)
-    resp.raise_for_status()
-    return [model["id"] for model in resp.json().get("data", [])]
+    try:
+        resp = httpx.get(url, headers=headers, timeout=30)
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as e:
+        raise RuntimeError(
+            f"Failed to fetch models from {url}: HTTP {e.response.status_code}"
+        ) from e
+    except httpx.RequestError as e:
+        raise RuntimeError(f"Failed to connect to {url}: {e}") from e
+    data = resp.json()
+    if "data" not in data:
+        raise RuntimeError(f"Unexpected response from {url}: missing 'data' field")
+    models = []
+    for model in data["data"]:
+        if "id" not in model:
+            continue
+        models.append(model["id"])
+    return models
 
 
 def _write_samples_jsonl(
@@ -202,6 +218,13 @@ def main() -> int:
         help="Seed for shuffling samples (default: 42)",
     )
     args = parser.parse_args()
+
+    if args.num_concurrent < 1:
+        parser.error("--num_concurrent must be at least 1")
+    if args.max_retries < 1:
+        parser.error("--max_retries must be at least 1")
+    if args.max_samples is not None and args.max_samples < 1:
+        parser.error("--max_samples must be at least 1")
 
     base_url = args.base_url.rstrip("/")
     model = args.model

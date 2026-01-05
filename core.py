@@ -29,7 +29,6 @@ from typing import Any, TypedDict
 import httpx
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
-from typing_extensions import NotRequired
 
 logger = logging.getLogger(__name__)
 
@@ -47,13 +46,13 @@ class LoggedSample(TypedDict):
     exact_match: float
 
 
-class TaskResult(TypedDict):
+class TaskResult(TypedDict, total=False):
     task: str
     task_hash: str
     metrics: Metrics
     num_samples: int
     elapsed_seconds: float
-    samples: NotRequired[list[LoggedSample]]
+    samples: list[LoggedSample]
 
 
 @dataclass
@@ -98,20 +97,33 @@ async def _request(
     max_retries: int,
 ) -> str:
     """Single request with retries. Raises RuntimeError if all retries fail."""
+    last_error: Exception | None = None
     for attempt in range(max_retries):
         try:
             resp = await client.post(url, json=payload)
             if resp.is_success:
-                return resp.json()["choices"][0]["message"]["content"]
+                data = resp.json()
+                choices = data.get("choices")
+                if not choices:
+                    raise ValueError(f"No choices in response: {data}")
+                message = choices[0].get("message")
+                if not message:
+                    raise ValueError(f"No message in response: {choices[0]}")
+                content = message.get("content")
+                if content is None:
+                    raise ValueError(f"No content in response: {message}")
+                return content
             logger.warning("Request failed (attempt %d): %s", attempt + 1, resp.text)
+            last_error = RuntimeError(f"HTTP {resp.status_code}: {resp.text[:200]}")
         except asyncio.CancelledError:
             raise  # Allow the program to exit immediately on Ctrl+C
         except httpx.HTTPError as e:
             logger.warning("Request error (attempt %d): %s", attempt + 1, e)
+            last_error = e
         if attempt < max_retries - 1:
             await asyncio.sleep(min(2**attempt, MAX_BACKOFF))
     raise RuntimeError(
-        f"Failed to get response from {url} after {max_retries} attempts"
+        f"Failed to get response from {url} after {max_retries} attempts: {last_error}"
     )
 
 
