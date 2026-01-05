@@ -34,7 +34,7 @@ nano-eval --tasks gsm8k_cot_llama --base_url=http://localhost:8000/v1 --max_samp
 ## Installation
 
 ```bash
-pip install -e .
+pip install nano-eval
 ```
 
 ## Usage
