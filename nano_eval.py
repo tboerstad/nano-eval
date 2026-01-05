@@ -8,6 +8,17 @@ Usage:
 
     # CLI
     nano-eval --tasks gsm8k_cot_llama --base_url http://localhost:8000/v1
+
+Architecture:
+    nano_eval.py (CLI, orchestration)
+         │
+    ┌────┴────┐
+  core.py   tasks/
+  APIConfig   TASKS registry
+  complete()  gsm8k.py
+  run_task()  chartqa.py
+
+Flow: main() → APIConfig → _evaluate() → TASKS[name]() → EvalResult
 """
 
 from __future__ import annotations
@@ -85,7 +96,17 @@ async def _evaluate(
     log_samples: bool,
     seed: int | None,
 ) -> EvalResult:
-    """Run evaluations (async implementation)."""
+    """
+    Run evaluations for specified tasks.
+
+    Args:
+        task_names: List of task names to evaluate
+        config: API configuration
+        max_samples: Optional limit on samples per task
+        output_path: If provided, write results.json to this directory
+        log_samples: If True, also write samples_{task}.jsonl files
+        seed: Optional seed for shuffling samples
+    """
     if output_path:
         output_path.mkdir(parents=True, exist_ok=True)
 
