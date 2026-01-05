@@ -1,5 +1,5 @@
 """
-End-to-end tests for nano-eval CLI.
+End-to-end tests for nano-eval.
 
 Tests use real datasets with mocked API responses via respx.
 Samples are loaded before mocking to avoid respx/proxy conflicts.
@@ -7,7 +7,6 @@ Samples are loaded before mocking to avoid respx/proxy conflicts.
 
 import hashlib
 import json
-import sys
 from unittest.mock import patch
 
 import respx
@@ -64,7 +63,6 @@ class TestE2E:
 
         def api_response(request):
             body = json.loads(request.content)
-            # Extract last user message for multiturn fewshot format
             last_user_msg = [m for m in body["messages"] if m["role"] == "user"][-1]
             prompt = last_user_msg["content"]
             h = hashlib.md5(prompt.encode()).hexdigest()[:6]
@@ -89,26 +87,14 @@ class TestE2E:
                 side_effect=api_response
             )
 
-            with (
-                patch.object(
-                    sys,
-                    "argv",
-                    [
-                        "nano-eval",
-                        "--tasks",
-                        "gsm8k_cot_llama",
-                        "--base_url",
-                        "http://test.com/v1",
-                        "--max_samples",
-                        "10",
-                        "--output_path",
-                        str(tmp_path),
-                        "--log_samples",
-                    ],
-                ),
-                patch.dict("tasks.TASKS", {"gsm8k_cot_llama": task}),
-            ):
-                main()
+            with patch.dict("tasks.TASKS", {"gsm8k_cot_llama": task}):
+                main(
+                    tasks="gsm8k_cot_llama",
+                    base_url="http://test.com/v1",
+                    max_samples=10,
+                    output_path=tmp_path,
+                    log_samples=True,
+                )
 
         results = json.loads((tmp_path / "results.json").read_text())
         assert results["results"]["gsm8k_cot_llama"]["metrics"]["exact_match"] == 0.7
@@ -135,7 +121,6 @@ class TestE2E:
 
         def api_response(request):
             body = json.loads(request.content)
-            # Extract text from vision message content array
             content_list = body["messages"][0]["content"]
             prompt = next(c["text"] for c in content_list if c["type"] == "text")
             h = hashlib.md5(prompt.encode()).hexdigest()[:6]
@@ -153,28 +138,15 @@ class TestE2E:
                 side_effect=api_response
             )
 
-            with (
-                patch.object(
-                    sys,
-                    "argv",
-                    [
-                        "nano-eval",
-                        "--tasks",
-                        "chartqa",
-                        "--base_url",
-                        "http://test.com/v1",
-                        "--model",
-                        "test",
-                        "--max_samples",
-                        "10",
-                        "--output_path",
-                        str(tmp_path),
-                        "--log_samples",
-                    ],
-                ),
-                patch.dict("tasks.TASKS", {"chartqa": task}),
-            ):
-                main()
+            with patch.dict("tasks.TASKS", {"chartqa": task}):
+                main(
+                    tasks="chartqa",
+                    base_url="http://test.com/v1",
+                    model="test",
+                    max_samples=10,
+                    output_path=tmp_path,
+                    log_samples=True,
+                )
 
         results = json.loads((tmp_path / "results.json").read_text())
         assert results["results"]["chartqa"]["metrics"]["exact_match"] == 0.7

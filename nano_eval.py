@@ -1,39 +1,31 @@
 """
-nano-eval CLI entry point.
+nano-eval - Minimal LLM evaluation tool.
 
-Responsibilities:
-- Parse CLI args (tasks, model, endpoint, concurrency)
-- Create APIConfig, run tasks
-- Output JSON
+Usage:
+    # Python API
+    from nano_eval import main
+    result = main(tasks="gsm8k_cot_llama", base_url="http://localhost:8000/v1")
 
-Architecture:
-    nano_eval.py (CLI, orchestration)
-         │
-    ┌────┴────┐
-  core.py   tasks/
-  APIConfig   TASKS registry
-  complete()  gsm8k.py
-  run_task()  chartqa.py
-
-Flow: CLI → APIConfig → evaluate() → TASKS[name]() → JSON
+    # CLI
+    nano-eval --tasks gsm8k_cot_llama --base_url http://localhost:8000/v1
 """
 
 from __future__ import annotations
 
-import argparse
 import asyncio
 import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict
 
+import click
 import httpx
 
 from core import APIConfig, LoggedSample, TaskResult, run_task
 from tasks import TASKS
 
-__all__ = ["APIConfig", "run_task", "TASKS", "evaluate"]
+__all__ = ["main", "APIConfig", "run_task", "TASKS", "EvalResult"]
 
 
 class ConfigInfo(TypedDict):
@@ -48,8 +40,10 @@ class EvalResult(TypedDict):
     config: ConfigInfo
 
 
-def _parse_kwargs(s: str) -> dict[str, str | int | float]:
-    """Parse 'key=value,key=value' into dict."""
+def _parse_gen_kwargs(s: str | dict[str, Any]) -> dict[str, Any]:
+    """Parse 'key=value,key=value' into dict, or pass through dict."""
+    if isinstance(s, dict):
+        return s
     if not s:
         return {}
     result = {}
@@ -58,10 +52,8 @@ def _parse_kwargs(s: str) -> dict[str, str | int | float]:
             raise ValueError(f"Invalid format '{pair}': expected 'key=value'")
         key, value = pair.split("=", 1)
         try:
-            # Parse numbers/bools: temperature=0.7 -> 0.7, enabled=true -> True
             result[key] = json.loads(value)
         except json.JSONDecodeError:
-            # Unquoted strings fail JSON parsing, use as-is: model=gpt-4 -> "gpt-4"
             result[key] = value
     return result
 
@@ -78,31 +70,20 @@ def _write_samples_jsonl(
     path: Path, task_name: str, samples: list[LoggedSample]
 ) -> None:
     """Write per-sample results to JSONL file."""
-    filepath = path / f"samples_{task_name}.jsonl"
-    with open(filepath, "w") as f:
+    with open(path / f"samples_{task_name}.jsonl", "w") as f:
         for sample in samples:
             f.write(json.dumps(sample, ensure_ascii=False) + "\n")
 
 
-async def evaluate(
+async def _evaluate(
     task_names: list[str],
     config: APIConfig,
-    max_samples: int | None = None,
-    output_path: Path | None = None,
-    log_samples: bool = False,
-    seed: int | None = None,
+    max_samples: int | None,
+    output_path: Path | None,
+    log_samples: bool,
+    seed: int | None,
 ) -> EvalResult:
-    """
-    Run evaluations for specified tasks.
-
-    Args:
-        task_names: List of task names to evaluate
-        config: API configuration
-        max_samples: Optional limit on samples per task
-        output_path: If provided, write results.json to this directory
-        log_samples: If True, also write samples_{task}.jsonl files
-        seed: Optional seed for shuffling samples
-    """
+    """Run evaluations (async implementation)."""
     if output_path:
         output_path.mkdir(parents=True, exist_ok=True)
 
@@ -140,109 +121,98 @@ async def evaluate(
     return eval_result
 
 
-def main() -> int:
-    """CLI entry point."""
+def main(
+    tasks: str | list[str],
+    base_url: str,
+    *,
+    model: str | None = None,
+    api_key: str = "",
+    num_concurrent: int = 8,
+    max_retries: int = 3,
+    gen_kwargs: str | dict[str, Any] = "",
+    max_samples: int | None = None,
+    output_path: str | Path | None = None,
+    log_samples: bool = False,
+    seed: int = 42,
+) -> EvalResult:
+    """
+    Run LLM evaluations.
+
+    Args:
+        tasks: Task name(s) - comma-separated string or list
+        base_url: API base URL (e.g. http://localhost:8000/v1)
+        model: Model name (auto-detected if API serves only one)
+        api_key: API authentication key
+        num_concurrent: Max concurrent requests
+        max_retries: Max retries per request
+        gen_kwargs: Generation kwargs - "key=value,..." string or dict
+        max_samples: Max samples per task (None for all)
+        output_path: Directory for results.json and sample files
+        log_samples: Write per-sample JSONL files
+        seed: Seed for shuffling samples
+
+    Returns:
+        EvalResult with metrics, hashes, timing, and configuration
+    """
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
-    parser = argparse.ArgumentParser(
-        description="nano-eval - Minimal LLM evaluation (chat/completions models only)"
+    task_names = (
+        [t.strip() for t in tasks.split(",")] if isinstance(tasks, str) else list(tasks)
     )
-    parser.add_argument(
-        "--tasks",
-        required=True,
-        help=f"Comma-separated task names (available: {', '.join(TASKS.keys())})",
-    )
-    parser.add_argument(
-        "--base_url",
-        required=True,
-        help="API base URL (e.g. http://localhost:8000/v1)",
-    )
-    parser.add_argument(
-        "--model",
-        help="Model name, auto-detected if API serves only one (e.g. google/gemma-3-4b-it)",
-    )
-    parser.add_argument(
-        "--api_key", default="", help="API authentication key (default: none)"
-    )
-    parser.add_argument(
-        "--num_concurrent",
-        type=int,
-        default=8,
-        help="Max concurrent requests (default: 8)",
-    )
-    parser.add_argument(
-        "--max_retries",
-        type=int,
-        default=3,
-        help="Max retries per request (default: 3)",
-    )
-    parser.add_argument(
-        "--gen_kwargs",
-        default="",
-        help="Generation kwargs as key=value pairs. "
-        "Defaults: temperature=0,max_tokens=256,seed=42. "
-        "User values override defaults (e.g. max_tokens=1024 keeps temperature=0,seed=42)",
-    )
-    parser.add_argument(
-        "--max_samples", type=int, help="Max samples per task (default: all)"
-    )
-    parser.add_argument(
-        "--output_path",
-        help="Directory for results.json and sample files (e.g. ./results)",
-    )
-    parser.add_argument(
-        "--log_samples",
-        action="store_true",
-        help="Write per-sample JSONL files (default: false)",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="Seed for shuffling samples (default: 42)",
-    )
-    args = parser.parse_args()
+    base_url = base_url.rstrip("/")
+    output_dir = Path(output_path) if output_path else None
 
-    base_url = args.base_url.rstrip("/")
-    model = args.model
-
-    if not model:
-        models = _list_models(base_url, args.api_key)
+    resolved_model = model
+    if not resolved_model:
+        models = _list_models(base_url, api_key)
         if len(models) == 1:
-            model = models[0]
+            resolved_model = models[0]
         else:
-            parser.error(
+            raise ValueError(
                 f"Auto-selecting model failed: expected 1 model, found {len(models)}. "
-                "Please specify --model."
+                "Please specify model."
             )
 
     default_gen_kwargs = {"temperature": 0, "max_tokens": 256, "seed": 42}
     config = APIConfig(
         url=f"{base_url}/chat/completions",
-        model=model,
-        api_key=args.api_key,
-        num_concurrent=args.num_concurrent,
-        max_retries=args.max_retries,
-        gen_kwargs={**default_gen_kwargs, **_parse_kwargs(args.gen_kwargs)},
+        model=resolved_model,
+        api_key=api_key,
+        num_concurrent=num_concurrent,
+        max_retries=max_retries,
+        gen_kwargs={**default_gen_kwargs, **_parse_gen_kwargs(gen_kwargs)},
     )
 
-    task_names = [t.strip() for t in args.tasks.split(",") if t.strip()]
-    output_path = Path(args.output_path) if args.output_path else None
-    output = asyncio.run(
-        evaluate(
-            task_names,
-            config,
-            args.max_samples,
-            output_path,
-            args.log_samples,
-            args.seed,
-        )
+    return asyncio.run(
+        _evaluate(task_names, config, max_samples, output_dir, log_samples, seed)
     )
 
-    print(json.dumps(output, indent=2))
 
-    return 0
+@click.command()
+@click.option(
+    "--tasks",
+    required=True,
+    help=f"Comma-separated task names ({', '.join(TASKS.keys())})",
+)
+@click.option(
+    "--base_url", required=True, help="API base URL (e.g. http://localhost:8000/v1)"
+)
+@click.option(
+    "--model", default=None, help="Model name, auto-detected if API serves only one"
+)
+@click.option("--api_key", default="", help="API authentication key")
+@click.option("--num_concurrent", default=8, type=int, help="Max concurrent requests")
+@click.option("--max_retries", default=3, type=int, help="Max retries per request")
+@click.option("--gen_kwargs", default="", help="Generation kwargs as key=value pairs")
+@click.option("--max_samples", default=None, type=int, help="Max samples per task")
+@click.option("--output_path", default=None, help="Directory for results.json")
+@click.option("--log_samples", is_flag=True, help="Write per-sample JSONL files")
+@click.option("--seed", default=42, type=int, help="Seed for shuffling samples")
+def cli(**kwargs: Any) -> None:
+    """nano-eval - Minimal LLM evaluation tool."""
+    result = main(**kwargs)
+    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
-    exit(main())
+    cli()

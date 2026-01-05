@@ -18,6 +18,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
+    "click>=8.0.0",
     "datasets>=2.0.0",
     "httpx>=0.23.0",
     "pillow>=9.0.0",
@@ -26,7 +27,7 @@ dependencies = [
 ]
 
 [project.scripts]
-nano-eval = "nano_eval:main"
+nano-eval = "nano_eval:cli"
 
 [project.urls]
 Homepage = "https://github.com/tboerstad/nano-eval"
