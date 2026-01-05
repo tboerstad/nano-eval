@@ -7,7 +7,7 @@ name = "nano-eval"
 version = "0.1.0"
 description = "Nano Eval - A minimal tool for verifying VLMs/LLMs across frameworks"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 authors = [{ name = "Thomas Børstad", email = "tboerstad@users.noreply.github.com" }]
 keywords = ["llm", "evaluation", "benchmark", "openai", "api", "vllm", "tgi"]
 classifiers = [
@@ -15,7 +15,6 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "License :: OSI Approved :: MIT License",
 ]
 requires-python = ">=3.10"
 dependencies = [
