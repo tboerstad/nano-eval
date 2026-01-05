@@ -1,14 +1,12 @@
-# nano-eval
+nano-eval is for checking that a model behind an OpenAI chat/complations API is correctly implemented. 
 
-Nano Eval - A minimal harness for evaluating LLMs via OpenAI-compatible APIs.
-
-> **Note:** This tool is designed for **comparing relative accuracy between inference frameworks** (e.g., vLLM vs TGI vs Ollama running the same model). It is not intended for absolute benchmark evaluations or leaderboard submissions. Use it to verify that different serving backends produce consistent results.
+> **Note:** This tool is designed for **comparing relative accuracy between inference frameworks** (e.g., vLLM vs SGLang vs MAX running the same model). It is not intended for absolute benchmark evaluations or leaderboard submissions. Use it to verify that different serving backends produce consistent results.
 
 ## Features
 
 - **API-only** - works with any OpenAI-compatible endpoint (vLLM, TGI, Ollama, etc.)
 - **Async** - concurrent requests with configurable parallelism
-- **Two built-in tasks** - GSM8K (text) and ChartQA (multimodal)
+- **Two built-in tasks** - GSM8K_cot_llama (text) and ChartQA (multimodal)
 - **Minimal** - lean codebase, few dependencies
 
 ## Installation
@@ -100,3 +98,7 @@ print(f"ChartQA: {result['metrics']}")
   "total_seconds": 45.2
 }
 ```
+
+This tool is inspired by, and borrows code from,
+one of the industry standard for full, comprehensive evals: [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness).
+
