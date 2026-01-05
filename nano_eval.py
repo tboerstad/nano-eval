@@ -33,6 +33,8 @@ import httpx
 from core import APIConfig, LoggedSample, TaskResult, run_task
 from tasks import TASKS
 
+__all__ = ["APIConfig", "run_task", "TASKS", "evaluate"]
+
 
 class ConfigInfo(TypedDict):
     model: str

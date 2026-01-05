@@ -34,7 +34,7 @@ nano-eval --tasks gsm8k_cot_llama --base_url=http://localhost:8000/v1 --max_samp
 ## Installation
 
 ```bash
-pip install -e .
+pip install nano-eval
 ```
 
 ## Usage
@@ -56,10 +56,9 @@ nano-eval \
 
 ```python
 import asyncio
-from core import APIConfig, run_task
-from tasks import TASKS
+from nano_eval import APIConfig, run_task, TASKS
 
-BASE_URL="http://localhost:8000/v1"
+BASE_URL = "http://localhost:8000/v1"
 
 # Configure API endpoint
 config = APIConfig(
@@ -71,7 +70,6 @@ config = APIConfig(
 # Run GSM8K evaluation
 result = asyncio.run(run_task(TASKS["gsm8k_cot_llama"], config, max_samples=100))
 print(f"GSM8K: {result['metrics']}")
-
 ```
 
 ## CLI Arguments
