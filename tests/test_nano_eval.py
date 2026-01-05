@@ -74,7 +74,9 @@ class TestE2E:
             return Response(200, json={"choices": [{"message": {"content": content}}]})
 
         task = Task(
-            name="gsm8k_cot_llama", samples=lambda n: real_samples, score=gsm8k_score
+            name="gsm8k_cot_llama",
+            samples=lambda n, seed: real_samples,
+            score=gsm8k_score,
         )
 
         with respx.mock:
@@ -142,7 +144,9 @@ class TestE2E:
             content = CHARTQA_RESPONSES[h]
             return Response(200, json={"choices": [{"message": {"content": content}}]})
 
-        task = Task(name="chartqa", samples=lambda n: real_samples, score=chartqa_score)
+        task = Task(
+            name="chartqa", samples=lambda n, seed: real_samples, score=chartqa_score
+        )
 
         with respx.mock:
             respx.post("http://test.com/v1/chat/completions").mock(

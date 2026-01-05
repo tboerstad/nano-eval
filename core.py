@@ -68,27 +68,10 @@ class Sample:
 
 @dataclass(frozen=True)
 class Task:
-    """
-    Minimal task definition: a loader of samples + a scoring function.
-
-    Examples:
-        # Text-only task
-        Task(
-            name="gsm8k",
-            samples=lambda max_samples: load_samples(max_samples),
-            score=lambda response, target: 1.0 if response == target else 0.0,
-        )
-
-        # Multimodal task
-        Task(
-            name="chartqa",
-            samples=lambda max_samples: load_chartqa(max_samples),
-            score=relaxed_match,
-        )
-    """
+    """Minimal task definition: a loader of samples + a scoring function."""
 
     name: str
-    samples: Callable[[int | None], list[Sample]]  # (max_samples) -> samples
+    samples: Callable[[int | None, int | None], list[Sample]]  # (max_samples, seed)
     score: Callable[[str, str], float]  # (response, target) -> score
 
 
@@ -244,7 +227,10 @@ def compute_task_hash(samples: list[Sample]) -> str:
 
 
 async def run_task(
-    task: Task, config: APIConfig, max_samples: int | None = None
+    task: Task,
+    config: APIConfig,
+    max_samples: int | None = None,
+    seed: int | None = None,
 ) -> TaskResult:
     """
     Evaluate a task: collect samples, run inference, compute scores.
@@ -253,11 +239,12 @@ async def run_task(
         task: Task definition with samples loader and scoring function
         config: API configuration (includes gen_kwargs for temperature, max_tokens, etc.)
         max_samples: Optional limit on number of samples
+        seed: Optional seed for shuffling sample order
 
     Returns:
         TaskResult with metrics, sample count, elapsed time, and per-sample data
     """
-    samples = task.samples(max_samples)
+    samples = task.samples(max_samples, seed)
     task_hash = compute_task_hash(samples)
     prompts = [s.prompt for s in samples]
 
