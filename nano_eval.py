@@ -88,6 +88,7 @@ async def evaluate(
     max_samples: int | None = None,
     output_path: Path | None = None,
     log_samples: bool = False,
+    seed: int | None = None,
 ) -> EvalResult:
     """
     Run evaluations for specified tasks.
@@ -98,6 +99,7 @@ async def evaluate(
         max_samples: Optional limit on samples per task
         output_path: If provided, write results.json to this directory
         log_samples: If True, also write samples_{task}.jsonl files
+        seed: Optional seed for shuffling samples within each split
     """
     if output_path:
         output_path.mkdir(parents=True, exist_ok=True)
@@ -109,7 +111,7 @@ async def evaluate(
     for name in task_names:
         if name not in TASKS:
             raise ValueError(f"Unknown task: {name}. Available: {list(TASKS.keys())}")
-        result = await run_task(TASKS[name], config, max_samples)
+        result = await run_task(TASKS[name], config, max_samples, seed)
         task_hashes.append(result["task_hash"])
         if output_path and log_samples:
             _write_samples_jsonl(output_path, name, result["samples"])
@@ -191,6 +193,11 @@ def main() -> int:
         action="store_true",
         help="Write per-sample JSONL files (default: false)",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        help="Seed for shuffling samples within each split (default: no shuffle)",
+    )
     args = parser.parse_args()
 
     base_url = args.base_url.rstrip("/")
@@ -219,7 +226,14 @@ def main() -> int:
     task_names = [t.strip() for t in args.tasks.split(",") if t.strip()]
     output_path = Path(args.output_path) if args.output_path else None
     output = asyncio.run(
-        evaluate(task_names, config, args.max_samples, output_path, args.log_samples)
+        evaluate(
+            task_names,
+            config,
+            args.max_samples,
+            output_path,
+            args.log_samples,
+            args.seed,
+        )
     )
 
     print(json.dumps(output, indent=2))

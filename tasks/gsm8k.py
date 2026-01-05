@@ -99,11 +99,12 @@ def _extract_gsm8k_answer(response: str) -> str:
     return response
 
 
-def samples(max_samples: int | None = None) -> list[Sample]:
+def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
     """Load GSM8K samples: (formatted_prompt, target_answer).
 
     Args:
         max_samples: Optional limit on number of samples
+        seed: Optional seed for shuffling samples within each split
 
     Returns:
         List of Sample objects
@@ -122,6 +123,8 @@ def samples(max_samples: int | None = None) -> list[Sample]:
             download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
         )
         assert isinstance(ds, Dataset)
+        if seed is not None:
+            ds = ds.shuffle(seed=seed)
         if remaining is not None:
             ds = ds.select(range(min(remaining, len(ds))))
         for doc in ds:
