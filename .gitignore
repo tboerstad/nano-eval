@@ -1,31 +1,4 @@
-# Virtual environments
 .venv/
-venv/
-ENV/
-
-# Python cache
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-
-# Distribution / packaging
-build/
-dist/
 *.egg-info/
-*.egg
-
-# Testing / coverage
 .pytest_cache/
-.coverage
-htmlcov/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
