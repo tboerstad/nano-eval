@@ -68,24 +68,7 @@ class Sample:
 
 @dataclass(frozen=True)
 class Task:
-    """
-    Minimal task definition: a loader of samples + a scoring function.
-
-    Examples:
-        # Text-only task
-        Task(
-            name="gsm8k",
-            samples=lambda max_samples: load_samples(max_samples),
-            score=lambda response, target: 1.0 if response == target else 0.0,
-        )
-
-        # Multimodal task
-        Task(
-            name="chartqa",
-            samples=lambda max_samples: load_chartqa(max_samples),
-            score=relaxed_match,
-        )
-    """
+    """Minimal task definition: a loader of samples + a scoring function."""
 
     name: str
     samples: Callable[[int | None, int | None], list[Sample]]  # (max_samples, seed)
