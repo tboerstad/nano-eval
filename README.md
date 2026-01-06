@@ -78,19 +78,35 @@ print(f"GSM8K: {result['metrics']}")
 
 ## CLI Arguments
 
-| Argument | Description | Default |
-|----------|-------------|---------|
-| `-t, --tasks` | Task to evaluate (can be repeated) | Required |
-| `--base-url` | OpenAI-compatible API endpoint | Required |
-| `--model` | Model name; auto-detected if endpoint serves one model | - |
-| `--api-key` | Bearer token for API authentication | - |
-| `--num-concurrent` | Parallel requests to send | 8 |
-| `--max-retries` | Retry attempts for failed requests | 3 |
-| `--extra-request-params` | Extra API params as `key=value,...` | - |
-| `--max-samples` | Limit samples per task | all |
-| `--output-path` | Write results.json and sample logs to this directory | - |
-| `--log-samples` | Save per-sample results as JSONL (requires --output-path) | - |
-| `--seed` | Seed for shuffling samples | 42 |
+```
+$ nano-eval --help
+Usage: nano-eval [OPTIONS]
+
+  Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
+
+  Example: nano-eval -t gsm8k_cot_llama --base-url http://localhost:8000/v1
+
+Options:
+  -t, --tasks [gsm8k_cot_llama|chartqa]
+                                  Task to evaluate (can be repeated)
+                                  [required]
+  --base-url TEXT                 OpenAI-compatible API endpoint  [required]
+  --model TEXT                    Model name; auto-detected if endpoint serves
+                                  one model
+  --api-key TEXT                  Bearer token for API authentication
+  --num-concurrent INTEGER        Parallel requests to send  [default: 8]
+  --max-retries INTEGER           Retry attempts for failed requests
+                                  [default: 3]
+  --extra-request-params TEXT     Extra API params as key=value,... (e.g.
+                                  temperature=0.7)
+  --max-samples INTEGER           Limit samples per task (default: all)
+  --output-path PATH              Write results.json and sample logs to this
+                                  directory
+  --log-samples                   Save per-sample results as JSONL (requires
+                                  --output-path)
+  --seed INTEGER                  Seed for shuffling samples  [default: 42]
+  --help                          Show this message and exit.
+```
 
 
 This tool is inspired and borrows from: [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness). Please check it out
