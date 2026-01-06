@@ -26,14 +26,14 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
-import httpx
+if TYPE_CHECKING:
+    from core import APIConfig, LoggedSample, TaskResult
 
-from core import APIConfig, LoggedSample, TaskResult, run_task
-from tasks import TASKS
+__all__ = ["evaluate", "main"]
 
-__all__ = ["APIConfig", "run_task", "TASKS", "evaluate"]
+TASK_NAMES = ["gsm8k_cot_llama", "chartqa"]
 
 
 class ConfigInfo(TypedDict):
@@ -68,6 +68,8 @@ def _parse_kwargs(s: str) -> dict[str, str | int | float]:
 
 def _list_models(base_url: str, api_key: str = "") -> list[str]:
     """Fetch available models from the API's /models endpoint."""
+    import httpx
+
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     resp = httpx.get(f"{base_url}/models", headers=headers, timeout=30)
     resp.raise_for_status()
@@ -103,6 +105,9 @@ async def evaluate(
         log_samples: If True, also write samples_{task}.jsonl files
         seed: Optional seed for shuffling samples
     """
+    from core import TaskResult, run_task
+    from tasks import TASKS
+
     if output_path:
         output_path.mkdir(parents=True, exist_ok=True)
 
@@ -150,7 +155,7 @@ def main() -> int:
     parser.add_argument(
         "--tasks",
         required=True,
-        help=f"Comma-separated task names (available: {', '.join(TASKS.keys())})",
+        help=f"Comma-separated task names (available: {', '.join(TASK_NAMES)})",
     )
     parser.add_argument(
         "--base_url",
@@ -202,6 +207,9 @@ def main() -> int:
         help="Seed for shuffling samples (default: 42)",
     )
     args = parser.parse_args()
+
+    # Defer heavy imports until after arg parsing for fast --help
+    from core import APIConfig
 
     base_url = args.base_url.rstrip("/")
     model = args.model
