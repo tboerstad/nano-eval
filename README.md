@@ -5,7 +5,7 @@
 nano-eval tests against an OpenAI compliant endpoint, specifically the `chat/completions` API.
 
 ```bash
-nano-eval --tasks gsm8k_cot_llama --base_url=http://localhost:8000/v1 --max_samples 100
+nano-eval --tasks gsm8k_cot_llama --base-url http://localhost:8000/v1 --max-samples 100
 
 # prints:
 {
@@ -48,12 +48,12 @@ pip install nano-eval
 ```bash
 # Text and Image evals, with custom parameters passed alongside the request
 nano-eval \
-    --tasks gsm8k_cot_llama,chartqa \
-    --base_url http://localhost:8000/v1 \
+    --tasks gsm8k_cot_llama --tasks chartqa \
+    --base-url http://localhost:8000/v1 \
     --model llama-3 \
-    --num_concurrent 64 \
-    --gen_kwargs temperature=0.7,max_tokens=1024 \
-    --output_path ./results
+    --num-concurrent 64 \
+    --gen-kwargs temperature=0.7,max_tokens=1024 \
+    --output-path ./results
 ```
 
 ### Python API
@@ -80,16 +80,17 @@ print(f"GSM8K: {result['metrics']}")
 
 | Argument | Description | Default |
 |----------|-------------|---------|
-| `--tasks` | Comma-separated task names (gsm8k_cot_llama, chartqa) | Required |
-| `--base_url` | API base URL (e.g. http://localhost:8000/v1) | Required |
-| `--model` | Model name (auto-detected if API serves only one) | None |
-| `--api_key` | API authentication key | "" |
-| `--num_concurrent` | Max concurrent requests | 8 |
-| `--max_retries` | Max retries per request | 3 |
-| `--gen_kwargs` | Generation params: `temperature=0.7,max_tokens=1024` | temperature=0,max_tokens=256,seed=42 |
-| `--max_samples` | Limit samples per task | None |
-| `--output_path` | Directory for results.json and sample files | None |
-| `--log_samples` | Write per-sample JSONL files | false |
+| `-t, --tasks` | Task to run (repeatable) | Required |
+| `--base-url` | API base URL | Required |
+| `--model` | Model name (auto-detected if API serves only one) | - |
+| `--api-key` | API authentication key | - |
+| `--num-concurrent` | Max concurrent requests | 8 |
+| `--max-retries` | Max retries per request | 3 |
+| `--gen-kwargs` | Generation params: `key=value,...` | temperature=0,max_tokens=256,seed=42 |
+| `--max-samples` | Limit samples per task | - |
+| `--output-path` | Directory for results.json and sample files | - |
+| `--log-samples` | Write per-sample JSONL files | - |
+| `--seed` | Shuffle seed | 42 |
 
 
 This tool is inspired and borrows from: [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness). Please check it out

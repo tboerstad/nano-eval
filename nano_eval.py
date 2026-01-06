@@ -169,7 +169,10 @@ def main(
     log_samples: bool,
     seed: int,
 ) -> None:
-    """nano-eval - LLM evaluation for chat/completions models."""
+    """LLM evaluation for chat/completions models.
+
+    Example: nano-eval -t gsm8k_cot_llama --base-url http://localhost:8000/v1
+    """
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
     from core import APIConfig
