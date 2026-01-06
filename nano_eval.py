@@ -145,49 +145,17 @@ async def evaluate(
 
 
 @click.command()
-@click.option(
-    "--tasks",
-    type=click.Choice(["gsm8k_cot_llama", "chartqa"]),
-    required=True,
-    multiple=True,
-    help="Task(s) to run",
-)
-@click.option(
-    "--base-url",
-    required=True,
-    help="API base URL (e.g. http://localhost:8000/v1)",
-)
-@click.option("--model", help="Model name, auto-detected if API serves only one")
-@click.option("--api-key", default="", help="API authentication key")
-@click.option(
-    "--num-concurrent",
-    type=int,
-    default=8,
-    show_default=True,
-    help="Max concurrent requests",
-)
-@click.option(
-    "--max-retries",
-    type=int,
-    default=3,
-    show_default=True,
-    help="Max retries per request",
-)
-@click.option(
-    "--gen-kwargs",
-    default="",
-    help="Generation kwargs as key=value pairs (defaults: temperature=0,max_tokens=256,seed=42)",
-)
-@click.option("--max-samples", type=int, help="Max samples per task")
-@click.option(
-    "--output-path",
-    type=click.Path(),
-    help="Directory for results.json and sample files",
-)
-@click.option("--log-samples", is_flag=True, help="Write per-sample JSONL files")
-@click.option(
-    "--seed", type=int, default=42, show_default=True, help="Seed for shuffling samples"
-)
+@click.option("--tasks", "-t", type=click.Choice(["gsm8k_cot_llama", "chartqa"]), required=True, multiple=True)
+@click.option("--base-url", envvar="BASE_URL", required=True, help="API base URL")
+@click.option("--model", envvar="MODEL", help="Auto-detected if API serves only one")
+@click.option("--api-key", envvar="API_KEY", default="")
+@click.option("--num-concurrent", default=8, show_default=True)
+@click.option("--max-retries", default=3, show_default=True)
+@click.option("--gen-kwargs", default="", help="key=value,... [temperature=0,max_tokens=256,seed=42]")
+@click.option("--max-samples", type=int)
+@click.option("--output-path", type=click.Path(), help="Output directory")
+@click.option("--log-samples", is_flag=True, help="Write per-sample JSONL")
+@click.option("--seed", default=42, show_default=True)
 def main(
     tasks: tuple[str, ...],
     base_url: str,
