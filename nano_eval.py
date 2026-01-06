@@ -147,19 +147,17 @@ async def evaluate(
 @click.command()
 @click.option(
     "--tasks",
+    type=click.Choice(["gsm8k_cot_llama", "chartqa"]),
     required=True,
-    help="Comma-separated task names (e.g. gsm8k_cot_llama,chartqa)",
+    multiple=True,
+    help="Task(s) to run",
 )
 @click.option(
     "--base-url",
     required=True,
     help="API base URL (e.g. http://localhost:8000/v1)",
 )
-@click.option(
-    "--model",
-    default=None,
-    help="Model name, auto-detected if API serves only one",
-)
+@click.option("--model", help="Model name, auto-detected if API serves only one")
 @click.option("--api-key", default="", help="API authentication key")
 @click.option(
     "--num-concurrent",
@@ -180,11 +178,10 @@ async def evaluate(
     default="",
     help="Generation kwargs as key=value pairs (defaults: temperature=0,max_tokens=256,seed=42)",
 )
-@click.option("--max-samples", type=int, default=None, help="Max samples per task")
+@click.option("--max-samples", type=int, help="Max samples per task")
 @click.option(
     "--output-path",
     type=click.Path(),
-    default=None,
     help="Directory for results.json and sample files",
 )
 @click.option("--log-samples", is_flag=True, help="Write per-sample JSONL files")
@@ -192,7 +189,7 @@ async def evaluate(
     "--seed", type=int, default=42, show_default=True, help="Seed for shuffling samples"
 )
 def main(
-    tasks: str,
+    tasks: tuple[str, ...],
     base_url: str,
     model: str | None,
     api_key: str,
@@ -231,7 +228,7 @@ def main(
         gen_kwargs={**default_gen_kwargs, **_parse_kwargs(gen_kwargs)},
     )
 
-    task_names = [t.strip() for t in tasks.split(",") if t.strip()]
+    task_names = list(tasks)
     path = Path(output_path) if output_path else None
     output = asyncio.run(
         evaluate(task_names, config, max_samples, path, log_samples, seed)
