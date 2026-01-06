@@ -1,4 +1,8 @@
-nano-eval is for checking that a model behind an OpenAI chat/completions API is correctly implemented. 
+**nano-eval** is a minimal tool for measuring the quality of a text or vision model. This is done by measuring the accuracy on hard coded datasets with known answers.
+
+> **Note:** This tool is designed for **comparing relative accuracy between inference frameworks** (e.g., vLLM vs SGLang vs MAX running the same model). It is not intended for absolute benchmark evaluations (there's only two datasets). Use it to verify that different serving backends produce consistent results or track results over time. 
+
+nano-eval tests against an OpenAI compliant endpoint, specifically the `chat/completions` API.
 
 ```bash
 nano-eval --tasks gsm8k_cot_llama --base_url=http://localhost:8000/v1 --max_samples 100
@@ -42,7 +46,7 @@ pip install nano-eval
 ### Command Line
 
 ```bash
-# Text and Image evals, with custom parameters
+# Text and Image evals, with custom parameters passed alongside the request
 nano-eval \
     --tasks gsm8k_cot_llama,chartqa \
     --base_url http://localhost:8000/v1 \
@@ -88,7 +92,6 @@ print(f"GSM8K: {result['metrics']}")
 | `--log_samples` | Write per-sample JSONL files | false |
 
 
-This tool is inspired and borrows from: [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness).
+This tool is inspired and borrows from: [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness). Please check it out
 
-> **Note:** This tool is designed for **comparing relative accuracy between inference frameworks** (e.g., vLLM vs SGLang vs MAX running the same model). It is not intended for absolute benchmark evaluations or leaderboard submissions. Use it to verify that different serving backends produce consistent results.
 
