@@ -146,9 +146,9 @@ async def evaluate(
 
 @click.command()
 @click.option("--tasks", "-t", type=click.Choice(["gsm8k_cot_llama", "chartqa"]), required=True, multiple=True)
-@click.option("--base-url", envvar="BASE_URL", required=True, help="API base URL")
-@click.option("--model", envvar="MODEL", help="Auto-detected if API serves only one")
-@click.option("--api-key", envvar="API_KEY", default="")
+@click.option("--base-url", required=True, help="API base URL")
+@click.option("--model", help="Auto-detected if API serves only one")
+@click.option("--api-key", default="")
 @click.option("--num-concurrent", default=8, show_default=True)
 @click.option("--max-retries", default=3, show_default=True)
 @click.option("--gen-kwargs", default="", help="key=value,... [temperature=0,max_tokens=256,seed=42]")
