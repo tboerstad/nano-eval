@@ -21,19 +21,30 @@ Flow: CLI → APIConfig → evaluate() → TASKS[name]() → JSON
 from __future__ import annotations
 
 import argparse
-import asyncio
 import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
-import httpx
+if TYPE_CHECKING:
+    from core import APIConfig, LoggedSample, TaskResult
 
-from core import APIConfig, LoggedSample, TaskResult, run_task
-from tasks import TASKS
+__all__ = ["evaluate", "_get_core", "_get_tasks"]
 
-__all__ = ["APIConfig", "run_task", "TASKS", "evaluate"]
+
+def _get_tasks() -> dict:
+    """Lazy import of TASKS registry."""
+    from tasks import TASKS
+
+    return TASKS
+
+
+def _get_core():
+    """Lazy import of core module."""
+    import core
+
+    return core
 
 
 class ConfigInfo(TypedDict):
@@ -68,6 +79,8 @@ def _parse_kwargs(s: str) -> dict[str, str | int | float]:
 
 def _list_models(base_url: str, api_key: str = "") -> list[str]:
     """Fetch available models from the API's /models endpoint."""
+    import httpx
+
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     resp = httpx.get(f"{base_url}/models", headers=headers, timeout=30)
     resp.raise_for_status()
@@ -103,6 +116,9 @@ async def evaluate(
         log_samples: If True, also write samples_{task}.jsonl files
         seed: Optional seed for shuffling samples
     """
+    core = _get_core()
+    TASKS = _get_tasks()
+
     if output_path:
         output_path.mkdir(parents=True, exist_ok=True)
 
@@ -113,11 +129,11 @@ async def evaluate(
     for name in task_names:
         if name not in TASKS:
             raise ValueError(f"Unknown task: {name}. Available: {list(TASKS.keys())}")
-        result = await run_task(TASKS[name], config, max_samples, seed)
+        result = await core.run_task(TASKS[name], config, max_samples, seed)
         task_hashes.append(result["task_hash"])
         if output_path and log_samples:
             _write_samples_jsonl(output_path, name, result["samples"])
-        results[name] = TaskResult(
+        results[name] = core.TaskResult(
             task=result["task"],
             task_hash=result["task_hash"],
             metrics=result["metrics"],
@@ -150,7 +166,7 @@ def main() -> int:
     parser.add_argument(
         "--tasks",
         required=True,
-        help=f"Comma-separated task names (available: {', '.join(TASKS.keys())})",
+        help="Comma-separated task names (e.g. gsm8k,chartqa)",
     )
     parser.add_argument(
         "--base_url",
@@ -203,6 +219,10 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    import asyncio
+
+    core = _get_core()
+
     base_url = args.base_url.rstrip("/")
     model = args.model
 
@@ -217,7 +237,7 @@ def main() -> int:
             )
 
     default_gen_kwargs = {"temperature": 0, "max_tokens": 256, "seed": 42}
-    config = APIConfig(
+    config = core.APIConfig(
         url=f"{base_url}/chat/completions",
         model=model,
         api_key=args.api_key,
