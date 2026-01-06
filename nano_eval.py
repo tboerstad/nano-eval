@@ -149,7 +149,9 @@ def main() -> int:
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
     parser = argparse.ArgumentParser(
-        description="nano-eval - Minimal LLM evaluation (chat/completions models only)"
+        description="nano-eval - LLM evaluation (chat/completions models)",
+        epilog="Example: nano-eval --tasks gsm8k_cot_llama --base_url http://localhost:8000/v1",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--tasks",
