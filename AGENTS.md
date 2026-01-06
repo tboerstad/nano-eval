@@ -43,6 +43,7 @@ below defined for real world testing. If you're asked to test against a real end
 ## Code Style
 
 - **No local imports**: Use module-level imports only. No imports inside functions or methods.
+  - **Exception**: CLI entry points (`nano_eval.py:main()`) defer expensive imports until after argparse to keep `--help` fast.
 - **High SNR comments only**: Comments should be useful for future readers who lack context. Don't add comments that only make sense in the context of our conversation (e.g., "Required - set via CLI" or "Fixed per review"). If a comment wouldn't help someone reading the code cold, don't add it.
 
 ## Testing
