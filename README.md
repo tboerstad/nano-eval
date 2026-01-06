@@ -48,11 +48,11 @@ pip install nano-eval
 ```bash
 # Text and Image evals, with custom parameters passed alongside the request
 nano-eval \
-    --tasks gsm8k_cot_llama --tasks chartqa \
+    -t gsm8k_cot_llama -t chartqa \
     --base-url http://localhost:8000/v1 \
     --model llama-3 \
     --num-concurrent 64 \
-    --gen-kwargs temperature=0.7,max_tokens=1024 \
+    --params temperature=0.7,max_tokens=1024 \
     --output-path ./results
 ```
 
@@ -80,17 +80,17 @@ print(f"GSM8K: {result['metrics']}")
 
 | Argument | Description | Default |
 |----------|-------------|---------|
-| `-t, --tasks` | Task to run (repeatable) | Required |
-| `--base-url` | API base URL | Required |
-| `--model` | Model name (auto-detected if API serves only one) | - |
-| `--api-key` | API authentication key | - |
-| `--num-concurrent` | Max concurrent requests | 8 |
-| `--max-retries` | Max retries per request | 3 |
-| `--gen-kwargs` | Generation params: `key=value,...` | temperature=0,max_tokens=256,seed=42 |
-| `--max-samples` | Limit samples per task | - |
-| `--output-path` | Directory for results.json and sample files | - |
-| `--log-samples` | Write per-sample JSONL files | - |
-| `--seed` | Shuffle seed | 42 |
+| `-t, --tasks` | Task to evaluate (can be repeated) | Required |
+| `--base-url` | OpenAI-compatible API endpoint | Required |
+| `--model` | Model name; auto-detected if endpoint serves one model | - |
+| `--api-key` | Bearer token for API authentication | - |
+| `--num-concurrent` | Parallel requests to send | 8 |
+| `--max-retries` | Retry attempts for failed requests | 3 |
+| `--params` | Extra API params as `key=value,...` | - |
+| `--max-samples` | Limit samples per task | all |
+| `--output-path` | Write results.json and sample logs to this directory | - |
+| `--log-samples` | Save per-sample results as JSONL (requires --output-path) | - |
+| `--seed` | Seed for shuffling samples | 42 |
 
 
 This tool is inspired and borrows from: [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness). Please check it out

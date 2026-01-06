@@ -145,17 +145,23 @@ async def evaluate(
 
 
 @click.command()
-@click.option("--tasks", "-t", type=click.Choice(["gsm8k_cot_llama", "chartqa"]), required=True, multiple=True)
-@click.option("--base-url", required=True, help="API base URL")
-@click.option("--model", help="Auto-detected if API serves only one")
-@click.option("--api-key", default="")
-@click.option("--num-concurrent", default=8, show_default=True)
-@click.option("--max-retries", default=3, show_default=True)
-@click.option("--gen-kwargs", default="", help="key=value,... [temperature=0,max_tokens=256,seed=42]")
-@click.option("--max-samples", type=int)
-@click.option("--output-path", type=click.Path(), help="Output directory")
-@click.option("--log-samples", is_flag=True, help="Write per-sample JSONL")
-@click.option("--seed", default=42, show_default=True)
+@click.option("-t", "--tasks", type=click.Choice(["gsm8k_cot_llama", "chartqa"]),
+              required=True, multiple=True, help="Task to evaluate (can be repeated)")
+@click.option("--base-url", required=True, help="OpenAI-compatible API endpoint")
+@click.option("--model", help="Model name; auto-detected if endpoint serves one model")
+@click.option("--api-key", default="", help="Bearer token for API authentication")
+@click.option("--num-concurrent", default=8, show_default=True,
+              help="Parallel requests to send")
+@click.option("--max-retries", default=3, show_default=True,
+              help="Retry attempts for failed requests")
+@click.option("--params", "gen_kwargs", default="",
+              help="Extra API params as key=value,... (e.g. temperature=0.7)")
+@click.option("--max-samples", type=int, help="Limit samples per task (default: all)")
+@click.option("--output-path", type=click.Path(),
+              help="Write results.json and sample logs to this directory")
+@click.option("--log-samples", is_flag=True,
+              help="Save per-sample results as JSONL (requires --output-path)")
+@click.option("--seed", default=42, show_default=True, help="Seed for shuffling samples")
 def main(
     tasks: tuple[str, ...],
     base_url: str,
@@ -169,9 +175,12 @@ def main(
     log_samples: bool,
     seed: int,
 ) -> None:
-    """LLM evaluation for chat/completions models.
+    """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
 
-    Example: nano-eval -t gsm8k_cot_llama --base-url http://localhost:8000/v1
+    \b
+    Examples:
+      nano-eval -t gsm8k_cot_llama --base-url http://localhost:8000/v1
+      nano-eval -t gsm8k_cot_llama -t chartqa --base-url $URL --model llama3
     """
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
