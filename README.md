@@ -52,7 +52,7 @@ nano-eval \
     --base-url http://localhost:8000/v1 \
     --model llama-3 \
     --num-concurrent 64 \
-    --params temperature=0.7,max_tokens=1024 \
+    --extra-request-params temperature=0.7,max_tokens=1024 \
     --output-path ./results
 ```
 
@@ -86,7 +86,7 @@ print(f"GSM8K: {result['metrics']}")
 | `--api-key` | Bearer token for API authentication | - |
 | `--num-concurrent` | Parallel requests to send | 8 |
 | `--max-retries` | Retry attempts for failed requests | 3 |
-| `--params` | Extra API params as `key=value,...` | - |
+| `--extra-request-params` | Extra API params as `key=value,...` | - |
 | `--max-samples` | Limit samples per task | all |
 | `--output-path` | Write results.json and sample logs to this directory | - |
 | `--log-samples` | Save per-sample results as JSONL (requires --output-path) | - |

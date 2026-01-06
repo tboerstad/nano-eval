@@ -154,7 +154,7 @@ async def evaluate(
               help="Parallel requests to send")
 @click.option("--max-retries", default=3, show_default=True,
               help="Retry attempts for failed requests")
-@click.option("--params", "gen_kwargs", default="",
+@click.option("--extra-request-params", "gen_kwargs", default="",
               help="Extra API params as key=value,... (e.g. temperature=0.7)")
 @click.option("--max-samples", type=int, help="Limit samples per task (default: all)")
 @click.option("--output-path", type=click.Path(),
@@ -177,10 +177,7 @@ def main(
 ) -> None:
     """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
 
-    \b
-    Examples:
-      nano-eval -t gsm8k_cot_llama --base-url http://localhost:8000/v1
-      nano-eval -t gsm8k_cot_llama -t chartqa --base-url $URL --model llama3
+    Example: nano-eval -t gsm8k_cot_llama --base-url http://localhost:8000/v1
     """
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
