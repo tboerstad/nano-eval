@@ -68,22 +68,7 @@ result = run_eval(
 print(f"GSM8K: {result['results']['gsm8k_cot_llama']['metrics']}")
 ```
 
-## CLI Arguments
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--tasks` | Task(s) to evaluate (repeatable) | *required* |
-| `--base-url` | OpenAI-compatible API endpoint | *required* |
-| `--model` | Model name; auto-detected if endpoint serves one | |
-| `--api-key` | Bearer token for API authentication | |
-| `--num-concurrent` | Parallel requests to send | 8 |
-| `--max-retries` | Retry attempts for failed requests | 3 |
-| `--extra-request-params` | API params as key=value,... | temperature=0,max_tokens=256,seed=42 |
-| `--max-samples` | Limit samples per task | all |
-| `--output-path` | Directory for results.json and sample logs | |
-| `--log-samples` | Save per-sample results as JSONL | false |
-| `--seed` | Seed for shuffling samples | 42 |
-
+Run `nano-eval --help` for all options.
 
 This tool is inspired and borrows from: [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness). Please check it out
 
