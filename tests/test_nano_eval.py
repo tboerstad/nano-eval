@@ -7,10 +7,10 @@ Samples are loaded before mocking to avoid respx/proxy conflicts.
 
 import hashlib
 import json
-import sys
 from unittest.mock import patch
 
 import respx
+from click.testing import CliRunner
 from httpx import Response
 
 from core import Task
@@ -64,6 +64,10 @@ class TestE2E:
 
         def api_response(request):
             body = json.loads(request.content)
+            # Verify default generation parameters are passed
+            assert body["temperature"] == 0
+            assert body["max_tokens"] == 256
+            assert body["seed"] == 42
             # Extract last user message for multiturn fewshot format
             last_user_msg = [m for m in body["messages"] if m["role"] == "user"][-1]
             prompt = last_user_msg["content"]
@@ -89,26 +93,20 @@ class TestE2E:
                 side_effect=api_response
             )
 
-            with (
-                patch.object(
-                    sys,
-                    "argv",
+            with patch.dict("tasks.TASKS", {"gsm8k_cot_llama": task}):
+                runner = CliRunner()
+                result = runner.invoke(
+                    main,
                     [
-                        "nano-eval",
-                        "--tasks",
-                        "gsm8k_cot_llama",
-                        "--base_url",
-                        "http://test.com/v1",
-                        "--max_samples",
-                        "10",
-                        "--output_path",
+                        "--tasks=gsm8k_cot_llama",
+                        "--base-url=http://test.com/v1",
+                        "--max-samples=10",
+                        "--output-path",
                         str(tmp_path),
-                        "--log_samples",
+                        "--log-samples",
                     ],
-                ),
-                patch.dict("tasks.TASKS", {"gsm8k_cot_llama": task}),
-            ):
-                main()
+                )
+                assert result.exit_code == 0, result.output
 
         results = json.loads((tmp_path / "results.json").read_text())
         assert results["results"]["gsm8k_cot_llama"]["metrics"]["exact_match"] == 0.7
@@ -153,28 +151,21 @@ class TestE2E:
                 side_effect=api_response
             )
 
-            with (
-                patch.object(
-                    sys,
-                    "argv",
+            with patch.dict("tasks.TASKS", {"chartqa": task}):
+                runner = CliRunner()
+                result = runner.invoke(
+                    main,
                     [
-                        "nano-eval",
-                        "--tasks",
-                        "chartqa",
-                        "--base_url",
-                        "http://test.com/v1",
-                        "--model",
-                        "test",
-                        "--max_samples",
-                        "10",
-                        "--output_path",
+                        "--tasks=chartqa",
+                        "--base-url=http://test.com/v1",
+                        "--model=test",
+                        "--max-samples=10",
+                        "--output-path",
                         str(tmp_path),
-                        "--log_samples",
+                        "--log-samples",
                     ],
-                ),
-                patch.dict("tasks.TASKS", {"chartqa": task}),
-            ):
-                main()
+                )
+                assert result.exit_code == 0, result.output
 
         results = json.loads((tmp_path / "results.json").read_text())
         assert results["results"]["chartqa"]["metrics"]["exact_match"] == 0.7

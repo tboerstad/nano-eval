@@ -5,7 +5,7 @@
 nano-eval tests against an OpenAI compliant endpoint, specifically the `chat/completions` API.
 
 ```bash
-nano-eval --tasks gsm8k_cot_llama --base_url=http://localhost:8000/v1 --max_samples 100
+nano-eval --tasks gsm8k_cot_llama --base-url http://localhost:8000/v1 --max-samples 100
 
 # prints:
 {
@@ -48,12 +48,12 @@ pip install nano-eval
 ```bash
 # Text and Image evals, with custom parameters passed alongside the request
 nano-eval \
-    --tasks gsm8k_cot_llama,chartqa \
-    --base_url http://localhost:8000/v1 \
+    -t gsm8k_cot_llama -t chartqa \
+    --base-url http://localhost:8000/v1 \
     --model llama-3 \
-    --num_concurrent 64 \
-    --gen_kwargs temperature=0.7,max_tokens=1024 \
-    --output_path ./results
+    --num-concurrent 64 \
+    --extra-request-params temperature=0.7,max_tokens=1024 \
+    --output-path ./results
 ```
 
 ### Python API
@@ -78,18 +78,35 @@ print(f"GSM8K: {result['metrics']}")
 
 ## CLI Arguments
 
-| Argument | Description | Default |
-|----------|-------------|---------|
-| `--tasks` | Comma-separated task names (gsm8k_cot_llama, chartqa) | Required |
-| `--base_url` | API base URL (e.g. http://localhost:8000/v1) | Required |
-| `--model` | Model name (auto-detected if API serves only one) | None |
-| `--api_key` | API authentication key | "" |
-| `--num_concurrent` | Max concurrent requests | 8 |
-| `--max_retries` | Max retries per request | 3 |
-| `--gen_kwargs` | Generation params: `temperature=0.7,max_tokens=1024` | temperature=0,max_tokens=256,seed=42 |
-| `--max_samples` | Limit samples per task | None |
-| `--output_path` | Directory for results.json and sample files | None |
-| `--log_samples` | Write per-sample JSONL files | false |
+```
+$ nano-eval --help
+Usage: nano-eval [OPTIONS]
+
+  Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
+
+  Example: nano-eval -t gsm8k_cot_llama --base-url http://localhost:8000/v1
+
+Options:
+  -t, --tasks [gsm8k_cot_llama|chartqa]
+                                  Task to evaluate (can be repeated)
+                                  [required]
+  --base-url TEXT                 OpenAI-compatible API endpoint  [required]
+  --model TEXT                    Model name; auto-detected if endpoint serves
+                                  one model
+  --api-key TEXT                  Bearer token for API authentication
+  --num-concurrent INTEGER        Parallel requests to send  [default: 8]
+  --max-retries INTEGER           Retry attempts for failed requests
+                                  [default: 3]
+  --extra-request-params TEXT     API params as key=value,...  [default:
+                                  temperature=0,max_tokens=256,seed=42]
+  --max-samples INTEGER           Limit samples per task (default: all)
+  --output-path PATH              Write results.json and sample logs to this
+                                  directory
+  --log-samples                   Save per-sample results as JSONL (requires
+                                  --output-path)
+  --seed INTEGER                  Seed for shuffling samples  [default: 42]
+  --help                          Show this message and exit.
+```
 
 
 This tool is inspired and borrows from: [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness). Please check it out
