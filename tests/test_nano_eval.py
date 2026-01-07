@@ -10,11 +10,11 @@ import json
 from unittest.mock import patch
 
 import respx
+from click.testing import CliRunner
 from httpx import Response
-from typer.testing import CliRunner
 
 from core import Task
-from nano_eval import app
+from nano_eval import main
 from tasks.chartqa import samples as load_chartqa_samples, score as chartqa_score
 from tasks.gsm8k import samples as load_gsm8k_samples, score as gsm8k_score
 
@@ -96,7 +96,7 @@ class TestE2E:
             with patch.dict("tasks.TASKS", {"gsm8k_cot_llama": task}):
                 runner = CliRunner()
                 result = runner.invoke(
-                    app,
+                    main,
                     [
                         "--tasks=gsm8k_cot_llama",
                         "--base-url=http://test.com/v1",
@@ -154,7 +154,7 @@ class TestE2E:
             with patch.dict("tasks.TASKS", {"chartqa": task}):
                 runner = CliRunner()
                 result = runner.invoke(
-                    app,
+                    main,
                     [
                         "--tasks=chartqa",
                         "--base-url=http://test.com/v1",

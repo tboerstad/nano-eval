@@ -27,8 +27,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeAlias, TypedDict
 
+import click
 import httpx
-import typer
 
 if TYPE_CHECKING:
     from core import APIConfig, LoggedSample, TaskResult, run_task
@@ -38,17 +38,7 @@ JsonValue: TypeAlias = (
     str | int | float | bool | None | dict[str, "JsonValue"] | list["JsonValue"]
 )
 
-__all__ = [
-    "run_eval",
-    "EvalResult",
-    "APIConfig",
-    "run_task",
-    "TASKS",
-    "evaluate",
-    "app",
-]
-
-app = typer.Typer()
+__all__ = ["run_eval", "EvalResult", "APIConfig", "run_task", "TASKS", "evaluate"]
 
 
 class ConfigInfo(TypedDict):
@@ -227,33 +217,57 @@ def run_eval(
     return asyncio.run(evaluate(tasks, config, max_samples, path, log_samples, seed))
 
 
-DEFAULT_GEN_KWARGS_STR = "temperature=0,max_tokens=256,seed=42"
-
-
-@app.command()
+@click.command()
+@click.option(
+    "--tasks", "-t", multiple=True, required=True, help="Task to evaluate (repeatable)"
+)
+@click.option("--base-url", required=True, help="OpenAI-compatible API endpoint")
+@click.option(
+    "--model", default=None, help="Model name (auto-detected if endpoint serves one)"
+)
+@click.option("--api-key", default="", help="Bearer token for API authentication")
+@click.option(
+    "--num-concurrent", default=8, show_default=True, help="Parallel requests"
+)
+@click.option(
+    "--max-retries",
+    default=3,
+    show_default=True,
+    help="Retry attempts for failed requests",
+)
+@click.option(
+    "--extra-request-params",
+    default="temperature=0,max_tokens=256,seed=42",
+    show_default=True,
+    help="API params as key=value,...",
+)
+@click.option("--max-samples", default=None, type=int, help="Limit samples per task")
+@click.option(
+    "--output-path", default=None, type=click.Path(), help="Directory for results.json"
+)
+@click.option("--log-samples", is_flag=True, help="Save per-sample JSONL")
+@click.option(
+    "--seed", default=42, show_default=True, help="Seed for shuffling samples"
+)
 def main(
-    tasks: list[str] = typer.Option(..., help="Task to evaluate (repeatable)"),
-    base_url: str = typer.Option(..., help="OpenAI-compatible API endpoint"),
-    model: str | None = typer.Option(
-        None, help="Model name (auto-detected if endpoint serves one)"
-    ),
-    api_key: str = typer.Option("", help="Bearer token for API authentication"),
-    num_concurrent: int = typer.Option(8, help="Parallel requests"),
-    max_retries: int = typer.Option(3, help="Retry attempts for failed requests"),
-    extra_request_params: str = typer.Option(
-        DEFAULT_GEN_KWARGS_STR, help="API params as key=value,..."
-    ),
-    max_samples: int | None = typer.Option(None, help="Limit samples per task"),
-    output_path: str | None = typer.Option(None, help="Directory for results.json"),
-    log_samples: bool = typer.Option(False, help="Save per-sample JSONL"),
-    seed: int = typer.Option(42, help="Seed for shuffling samples"),
+    tasks: tuple[str, ...],
+    base_url: str,
+    model: str | None,
+    api_key: str,
+    num_concurrent: int,
+    max_retries: int,
+    extra_request_params: str,
+    max_samples: int | None,
+    output_path: str | None,
+    log_samples: bool,
+    seed: int,
 ) -> None:
     """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs."""
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
     try:
         result = run_eval(
-            tasks=tasks,
+            tasks=list(tasks),
             base_url=base_url,
             model=model,
             api_key=api_key,
@@ -267,11 +281,11 @@ def main(
         )
     except ValueError as e:
         if "Auto-selecting model" in str(e):
-            raise typer.BadParameter(str(e).replace("model.", "--model."))
+            raise click.UsageError(str(e).replace("model.", "--model."))
         raise
 
     print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
-    app()
+    main()
