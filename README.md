@@ -43,41 +43,6 @@ pip install nano-eval
 
 ## Usage
 
-### Command Line
-
-```bash
-# Text and Image evals, with custom parameters passed alongside the request
-nano-eval \
-    -t gsm8k_cot_llama -t chartqa \
-    --base-url http://localhost:8000/v1 \
-    --model llama-3 \
-    --num-concurrent 64 \
-    --extra-request-params temperature=0.7,max_tokens=1024 \
-    --output-path ./results
-```
-
-### Python API
-
-```python
-import asyncio
-from nano_eval import APIConfig, run_task, TASKS
-
-BASE_URL = "http://localhost:8000/v1"
-
-# Configure API endpoint
-config = APIConfig(
-    url=f"{BASE_URL}/chat/completions",
-    model="gpt-4",
-    num_concurrent=8
-)
-
-# Run GSM8K evaluation
-result = asyncio.run(run_task(TASKS["gsm8k_cot_llama"], config, max_samples=100))
-print(f"GSM8K: {result['metrics']}")
-```
-
-## CLI Arguments
-
 ```
 $ nano-eval --help
 Usage: nano-eval [OPTIONS]
@@ -99,13 +64,29 @@ Options:
                                   [default: 3]
   --extra-request-params TEXT     API params as key=value,...  [default:
                                   temperature=0,max_tokens=256,seed=42]
-  --max-samples INTEGER           Limit samples per task (default: all)
+  --max-samples INTEGER           If provided, limit samples per task
   --output-path PATH              Write results.json and sample logs to this
                                   directory
   --log-samples                   Save per-sample results as JSONL (requires
                                   --output-path)
   --seed INTEGER                  Seed for shuffling samples  [default: 42]
   --help                          Show this message and exit.
+```
+
+### Python API
+
+```python
+import asyncio
+from nano_eval import evaluate, EvalResult
+
+result: EvalResult = asyncio.run(evaluate(
+    tasks=["gsm8k_cot_llama"],
+    base_url="http://localhost:8000/v1",
+    model="gpt-4",
+    max_samples=100,
+))
+gsm8k = result["results"]["gsm8k_cot_llama"]
+print(f"Accuracy: {gsm8k['metrics']['exact_match']:.1%}")
 ```
 
 
