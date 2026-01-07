@@ -98,8 +98,8 @@ class TestE2E:
                 result = runner.invoke(
                     app,
                     [
-                        "gsm8k_cot_llama",
-                        "http://test.com/v1",
+                        "--tasks=gsm8k_cot_llama",
+                        "--base-url=http://test.com/v1",
                         "--max-samples=10",
                         "--output-path",
                         str(tmp_path),
@@ -156,8 +156,8 @@ class TestE2E:
                 result = runner.invoke(
                     app,
                     [
-                        "chartqa",
-                        "http://test.com/v1",
+                        "--tasks=chartqa",
+                        "--base-url=http://test.com/v1",
                         "--model=test",
                         "--max-samples=10",
                         "--output-path",

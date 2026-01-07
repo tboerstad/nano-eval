@@ -232,8 +232,8 @@ DEFAULT_GEN_KWARGS_STR = "temperature=0,max_tokens=256,seed=42"
 
 @app.command()
 def main(
-    tasks: list[str],
-    base_url: str,
+    tasks: list[str] = typer.Option(...),
+    base_url: str = typer.Option(...),
     model: str | None = None,
     api_key: str = "",
     num_concurrent: int = 8,
