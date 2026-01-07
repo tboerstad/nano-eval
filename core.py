@@ -1,14 +1,4 @@
-"""
-Core utilities for nano-eval.
-
-Responsibilities:
-- APIConfig: endpoint, model, concurrency, timeout
-- Sample/Task: minimal task abstraction (generator + scorer)
-- complete(): async batch chat completions (OpenAI-compatible)
-- run_task(): evaluate a Task, return TaskResult
-- _normalize(): text normalization for comparison
-- _encode_image(): PIL→base64; rejects remote URLs
-"""
+"""Core evaluation engine: API config, task runner, completions."""
 
 from __future__ import annotations
 
@@ -207,18 +197,17 @@ def _normalize(text: str) -> str:
     return text.lower().strip()
 
 
-def _prompt_to_str(prompt: str | tuple[str, list] | list[dict[str, str]]) -> str:
-    """Extract text from prompt (handles multimodal tuples and message lists)."""
-    if isinstance(prompt, list):
-        return "\n".join(f"{m['role']}: {m['content']}" for m in prompt)
-    return prompt[0] if isinstance(prompt, tuple) else prompt
-
-
 def compute_task_hash(samples: list[Sample]) -> str:
-    """Compute SHA256 hash for all samples in a task (includes image data)."""
+    """Compute SHA256 hash for all samples in a task."""
     hasher = hashlib.sha256()
     for s in samples:
-        hasher.update(_prompt_to_str(s.prompt).encode())
+        if isinstance(s.prompt, list):
+            prompt_str = "\n".join(f"{m['role']}: {m['content']}" for m in s.prompt)
+        elif isinstance(s.prompt, tuple):
+            prompt_str = s.prompt[0]
+        else:
+            prompt_str = s.prompt
+        hasher.update(prompt_str.encode())
         if isinstance(s.prompt, tuple):
             for img in s.prompt[1]:
                 hasher.update(_encode_image(img).encode())
@@ -260,17 +249,24 @@ async def run_task(
 
     logger.info("%s: accuracy=%.4f±%.4f (%.2fs)", task.name, accuracy, stderr, elapsed)
 
-    # Always collect per-sample data for optional JSONL export (negligible overhead)
-    logged_samples: list[LoggedSample] = [
-        LoggedSample(
-            sample_id=i,
-            target=s.target,
-            prompt=_prompt_to_str(s.prompt),
-            response=r,
-            exact_match=score,
+    # Always collect per-sample data for optional JSONL export
+    logged_samples: list[LoggedSample] = []
+    for i, (s, r, score) in enumerate(zip(samples, responses, scores)):
+        if isinstance(s.prompt, list):
+            prompt_str = "\n".join(f"{m['role']}: {m['content']}" for m in s.prompt)
+        elif isinstance(s.prompt, tuple):
+            prompt_str = s.prompt[0]
+        else:
+            prompt_str = s.prompt
+        logged_samples.append(
+            LoggedSample(
+                sample_id=i,
+                target=s.target,
+                prompt=prompt_str,
+                response=r,
+                exact_match=score,
+            )
         )
-        for i, (s, r, score) in enumerate(zip(samples, responses, scores))
-    ]
     return TaskResult(
         task=task.name,
         task_hash=task_hash,
@@ -282,11 +278,7 @@ async def run_task(
 
 
 def enable_offline_if_cached(dataset: str, revision: str) -> None:
-    """Avoid HF Hub network calls when cache exists.
-
-    Even with pinned revisions and cached data, HF still makes HEAD requests
-    to check for updates. This causes rate limiting and spurious failures.
-    """
+    """Avoid HF Hub network calls when cache exists."""
     if not os.environ.get("HF_HUB_OFFLINE"):
         hf_home = Path(
             os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")
@@ -300,3 +292,41 @@ def enable_offline_if_cached(dataset: str, revision: str) -> None:
         )
         if cache.is_dir() and any(cache.iterdir()):
             os.environ["HF_HUB_OFFLINE"] = "1"
+
+
+def load_dataset_samples(
+    dataset: str,
+    revision: str,
+    splits: list[str],
+    transform: Callable[[Any], Sample],
+    max_samples: int | None = None,
+    seed: int | None = None,
+    subset: str | None = None,
+) -> list[Sample]:
+    """Generic HuggingFace dataset loader with split iteration and sampling."""
+    import datasets
+    from datasets import Dataset, DownloadMode
+
+    enable_offline_if_cached(dataset, revision)
+    result: list[Sample] = []
+    remaining = max_samples
+    for split in splits:
+        if remaining is not None and remaining <= 0:
+            break
+        ds = datasets.load_dataset(
+            dataset,
+            subset,
+            split=split,
+            revision=revision,
+            download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
+        )
+        assert isinstance(ds, Dataset)
+        if seed is not None:
+            ds = ds.shuffle(seed=seed)
+        if remaining is not None:
+            ds = ds.select(range(min(remaining, len(ds))))
+        for doc in ds:
+            result.append(transform(doc))
+        if max_samples is not None:
+            remaining = max_samples - len(result)
+    return result
