@@ -232,17 +232,21 @@ DEFAULT_GEN_KWARGS_STR = "temperature=0,max_tokens=256,seed=42"
 
 @app.command()
 def main(
-    tasks: list[str] = typer.Option(...),
-    base_url: str = typer.Option(...),
-    model: str | None = None,
-    api_key: str = "",
-    num_concurrent: int = 8,
-    max_retries: int = 3,
-    extra_request_params: str = DEFAULT_GEN_KWARGS_STR,
-    max_samples: int | None = None,
-    output_path: str | None = None,
-    log_samples: bool = False,
-    seed: int = 42,
+    tasks: list[str] = typer.Option(..., help="Task to evaluate (repeatable)"),
+    base_url: str = typer.Option(..., help="OpenAI-compatible API endpoint"),
+    model: str | None = typer.Option(
+        None, help="Model name (auto-detected if endpoint serves one)"
+    ),
+    api_key: str = typer.Option("", help="Bearer token for API authentication"),
+    num_concurrent: int = typer.Option(8, help="Parallel requests"),
+    max_retries: int = typer.Option(3, help="Retry attempts for failed requests"),
+    extra_request_params: str = typer.Option(
+        DEFAULT_GEN_KWARGS_STR, help="API params as key=value,..."
+    ),
+    max_samples: int | None = typer.Option(None, help="Limit samples per task"),
+    output_path: str | None = typer.Option(None, help="Directory for results.json"),
+    log_samples: bool = typer.Option(False, help="Save per-sample JSONL"),
+    seed: int = typer.Option(42, help="Seed for shuffling samples"),
 ) -> None:
     """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs."""
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
