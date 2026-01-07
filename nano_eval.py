@@ -25,16 +25,15 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import click
 import httpx
 
 if TYPE_CHECKING:
-    from core import APIConfig, LoggedSample, TaskResult, run_task
-    from tasks import TASKS
+    from core import LoggedSample, TaskResult
 
-__all__ = ["APIConfig", "run_task", "TASKS", "evaluate"]
+__all__ = ["evaluate", "EvalResult"]
 
 
 class ConfigInfo(TypedDict):
@@ -86,26 +85,60 @@ def _write_samples_jsonl(
 
 
 async def evaluate(
-    task_names: list[str],
-    config: APIConfig,
+    tasks: list[str],
+    base_url: str,
+    model: str | None = None,
+    api_key: str = "",
+    num_concurrent: int = 8,
+    max_retries: int = 3,
+    gen_kwargs: dict[str, Any] | None = None,
     max_samples: int | None = None,
     output_path: Path | None = None,
     log_samples: bool = False,
-    seed: int | None = None,
+    seed: int = 42,
 ) -> EvalResult:
     """
     Run evaluations for specified tasks.
 
     Args:
-        task_names: List of task names to evaluate
-        config: API configuration
+        tasks: List of task names to evaluate
+        base_url: OpenAI-compatible API endpoint (e.g. http://localhost:8000/v1)
+        model: Model name. Auto-detected if endpoint serves exactly one model.
+        api_key: Bearer token for API authentication
+        num_concurrent: Parallel requests to send
+        max_retries: Retry attempts for failed requests
+        gen_kwargs: API params like temperature, max_tokens, seed
         max_samples: Optional limit on samples per task
         output_path: If provided, write results.json to this directory
         log_samples: If True, also write samples_{task}.jsonl files
-        seed: Optional seed for shuffling samples
+        seed: Seed for shuffling samples
+
+    Returns:
+        EvalResult with per-task metrics and metadata
     """
-    from core import TaskResult, run_task
+    from core import APIConfig, TaskResult, run_task
     from tasks import TASKS
+
+    base_url = base_url.rstrip("/")
+
+    if model is None:
+        models = _list_models(base_url, api_key)
+        if len(models) == 1:
+            model = models[0]
+        else:
+            raise ValueError(
+                f"Auto-detecting model failed: expected 1 model, found {len(models)}. "
+                "Please specify model explicitly."
+            )
+
+    config = APIConfig(
+        url=f"{base_url}/chat/completions",
+        model=model,
+        api_key=api_key,
+        num_concurrent=num_concurrent,
+        max_retries=max_retries,
+        gen_kwargs=gen_kwargs or {},
+    )
 
     if output_path:
         output_path.mkdir(parents=True, exist_ok=True)
@@ -114,7 +147,7 @@ async def evaluate(
     task_hashes: list[str] = []
     total_seconds = 0.0
 
-    for name in task_names:
+    for name in tasks:
         if name not in TASKS:
             raise ValueError(f"Unknown task: {name}. Available: {list(TASKS.keys())}")
         result = await run_task(TASKS[name], config, max_samples, seed)
@@ -145,24 +178,47 @@ async def evaluate(
 
 
 @click.command()
-@click.option("-t", "--tasks", type=click.Choice(["gsm8k_cot_llama", "chartqa"]),
-              required=True, multiple=True, help="Task to evaluate (can be repeated)")
+@click.option(
+    "-t",
+    "--tasks",
+    type=click.Choice(["gsm8k_cot_llama", "chartqa"]),
+    required=True,
+    multiple=True,
+    help="Task to evaluate (can be repeated)",
+)
 @click.option("--base-url", required=True, help="OpenAI-compatible API endpoint")
 @click.option("--model", help="Model name; auto-detected if endpoint serves one model")
 @click.option("--api-key", default="", help="Bearer token for API authentication")
-@click.option("--num-concurrent", default=8, show_default=True,
-              help="Parallel requests to send")
-@click.option("--max-retries", default=3, show_default=True,
-              help="Retry attempts for failed requests")
-@click.option("--extra-request-params", "gen_kwargs",
-              default="temperature=0,max_tokens=256,seed=42", show_default=True,
-              help="API params as key=value,...")
+@click.option(
+    "--num-concurrent", default=8, show_default=True, help="Parallel requests to send"
+)
+@click.option(
+    "--max-retries",
+    default=3,
+    show_default=True,
+    help="Retry attempts for failed requests",
+)
+@click.option(
+    "--extra-request-params",
+    "gen_kwargs",
+    default="temperature=0,max_tokens=256,seed=42",
+    show_default=True,
+    help="API params as key=value,...",
+)
 @click.option("--max-samples", type=int, help="Limit samples per task (default: all)")
-@click.option("--output-path", type=click.Path(),
-              help="Write results.json and sample logs to this directory")
-@click.option("--log-samples", is_flag=True,
-              help="Save per-sample results as JSONL (requires --output-path)")
-@click.option("--seed", default=42, show_default=True, help="Seed for shuffling samples")
+@click.option(
+    "--output-path",
+    type=click.Path(),
+    help="Write results.json and sample logs to this directory",
+)
+@click.option(
+    "--log-samples",
+    is_flag=True,
+    help="Save per-sample results as JSONL (requires --output-path)",
+)
+@click.option(
+    "--seed", default=42, show_default=True, help="Seed for shuffling samples"
+)
 def main(
     tasks: tuple[str, ...],
     base_url: str,
@@ -182,36 +238,26 @@ def main(
     """
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
-    from core import APIConfig
-
-    base_url = base_url.rstrip("/")
-
-    if not model:
-        models = _list_models(base_url, api_key)
-        if len(models) == 1:
-            model = models[0]
-        else:
-            raise click.UsageError(
-                f"Auto-selecting model failed: expected 1 model, found {len(models)}. "
-                "Please specify --model."
+    try:
+        result = asyncio.run(
+            evaluate(
+                tasks=list(tasks),
+                base_url=base_url,
+                model=model,
+                api_key=api_key,
+                num_concurrent=num_concurrent,
+                max_retries=max_retries,
+                gen_kwargs=_parse_kwargs(gen_kwargs),
+                max_samples=max_samples,
+                output_path=Path(output_path) if output_path else None,
+                log_samples=log_samples,
+                seed=seed,
             )
+        )
+    except ValueError as e:
+        raise click.UsageError(str(e)) from None
 
-    config = APIConfig(
-        url=f"{base_url}/chat/completions",
-        model=model,
-        api_key=api_key,
-        num_concurrent=num_concurrent,
-        max_retries=max_retries,
-        gen_kwargs=_parse_kwargs(gen_kwargs),
-    )
-
-    task_names = list(tasks)
-    path = Path(output_path) if output_path else None
-    output = asyncio.run(
-        evaluate(task_names, config, max_samples, path, log_samples, seed)
-    )
-
-    print(json.dumps(output, indent=2))
+    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
