@@ -25,10 +25,10 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, Annotated, TypeAlias, TypedDict
 
-import click
 import httpx
+import typer
 
 if TYPE_CHECKING:
     from core import APIConfig, LoggedSample, TaskResult, run_task
@@ -38,7 +38,17 @@ JsonValue: TypeAlias = (
     str | int | float | bool | None | dict[str, "JsonValue"] | list["JsonValue"]
 )
 
-__all__ = ["run_eval", "EvalResult", "APIConfig", "run_task", "TASKS", "evaluate"]
+__all__ = [
+    "run_eval",
+    "EvalResult",
+    "APIConfig",
+    "run_task",
+    "TASKS",
+    "evaluate",
+    "app",
+]
+
+app = typer.Typer()
 
 
 class ConfigInfo(TypedDict):
@@ -217,76 +227,50 @@ def run_eval(
     return asyncio.run(evaluate(tasks, config, max_samples, path, log_samples, seed))
 
 
-@click.command()
-@click.option(
-    "-t",
-    "--tasks",
-    type=click.Choice(["gsm8k_cot_llama", "chartqa"]),
-    required=True,
-    multiple=True,
-    help="Task to evaluate (can be repeated)",
-)
-@click.option("--base-url", required=True, help="OpenAI-compatible API endpoint")
-@click.option("--model", help="Model name; auto-detected if endpoint serves one model")
-@click.option("--api-key", default="", help="Bearer token for API authentication")
-@click.option(
-    "--num-concurrent", default=8, show_default=True, help="Parallel requests to send"
-)
-@click.option(
-    "--max-retries",
-    default=3,
-    show_default=True,
-    help="Retry attempts for failed requests",
-)
-@click.option(
-    "--extra-request-params",
-    "gen_kwargs",
-    default="temperature=0,max_tokens=256,seed=42",
-    show_default=True,
-    help="API params as key=value,...",
-)
-@click.option("--max-samples", type=int, help="Limit samples per task (default: all)")
-@click.option(
-    "--output-path",
-    type=click.Path(),
-    help="Write results.json and sample logs to this directory",
-)
-@click.option(
-    "--log-samples",
-    is_flag=True,
-    help="Save per-sample results as JSONL (requires --output-path)",
-)
-@click.option(
-    "--seed", default=42, show_default=True, help="Seed for shuffling samples"
-)
-def main(
-    tasks: tuple[str, ...],
-    base_url: str,
-    model: str | None,
-    api_key: str,
-    num_concurrent: int,
-    max_retries: int,
-    gen_kwargs: str,
-    max_samples: int | None,
-    output_path: str | None,
-    log_samples: bool,
-    seed: int,
-) -> None:
-    """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
+DEFAULT_GEN_KWARGS_STR = "temperature=0,max_tokens=256,seed=42"
 
-    Example: nano-eval -t gsm8k_cot_llama --base-url http://localhost:8000/v1
-    """
+
+@app.command()
+def main(
+    tasks: Annotated[list[str], typer.Option("-t", "--tasks", help="Task to evaluate")],
+    base_url: Annotated[str, typer.Option(help="OpenAI-compatible API endpoint")],
+    model: Annotated[
+        str | None,
+        typer.Option(help="Model name; auto-detected if endpoint serves one"),
+    ] = None,
+    api_key: Annotated[
+        str, typer.Option(help="Bearer token for API authentication")
+    ] = "",
+    num_concurrent: Annotated[int, typer.Option(help="Parallel requests to send")] = 8,
+    max_retries: Annotated[
+        int, typer.Option(help="Retry attempts for failed requests")
+    ] = 3,
+    extra_request_params: Annotated[
+        str, typer.Option(help="API params as key=value,...")
+    ] = DEFAULT_GEN_KWARGS_STR,
+    max_samples: Annotated[
+        int | None, typer.Option(help="Limit samples per task")
+    ] = None,
+    output_path: Annotated[
+        str | None, typer.Option(help="Directory for results.json and sample logs")
+    ] = None,
+    log_samples: Annotated[
+        bool, typer.Option(help="Save per-sample results as JSONL")
+    ] = False,
+    seed: Annotated[int, typer.Option(help="Seed for shuffling samples")] = 42,
+) -> None:
+    """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs."""
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
     try:
         result = run_eval(
-            tasks=list(tasks),
+            tasks=tasks,
             base_url=base_url,
             model=model,
             api_key=api_key,
             num_concurrent=num_concurrent,
             max_retries=max_retries,
-            gen_kwargs=_parse_kwargs(gen_kwargs),
+            gen_kwargs=_parse_kwargs(extra_request_params),
             max_samples=max_samples,
             output_path=output_path,
             log_samples=log_samples,
@@ -294,11 +278,11 @@ def main(
         )
     except ValueError as e:
         if "Auto-selecting model" in str(e):
-            raise click.UsageError(str(e).replace("model.", "--model."))
+            raise typer.BadParameter(str(e).replace("model.", "--model."))
         raise
 
     print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
-    main()
+    app()
