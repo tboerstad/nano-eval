@@ -25,7 +25,7 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, TypeAlias, TypedDict
 
 import httpx
 import typer
@@ -232,32 +232,17 @@ DEFAULT_GEN_KWARGS_STR = "temperature=0,max_tokens=256,seed=42"
 
 @app.command()
 def main(
-    tasks: Annotated[list[str], typer.Option("-t", "--tasks", help="Task to evaluate")],
-    base_url: Annotated[str, typer.Option(help="OpenAI-compatible API endpoint")],
-    model: Annotated[
-        str | None,
-        typer.Option(help="Model name; auto-detected if endpoint serves one"),
-    ] = None,
-    api_key: Annotated[
-        str, typer.Option(help="Bearer token for API authentication")
-    ] = "",
-    num_concurrent: Annotated[int, typer.Option(help="Parallel requests to send")] = 8,
-    max_retries: Annotated[
-        int, typer.Option(help="Retry attempts for failed requests")
-    ] = 3,
-    extra_request_params: Annotated[
-        str, typer.Option(help="API params as key=value,...")
-    ] = DEFAULT_GEN_KWARGS_STR,
-    max_samples: Annotated[
-        int | None, typer.Option(help="Limit samples per task")
-    ] = None,
-    output_path: Annotated[
-        str | None, typer.Option(help="Directory for results.json and sample logs")
-    ] = None,
-    log_samples: Annotated[
-        bool, typer.Option(help="Save per-sample results as JSONL")
-    ] = False,
-    seed: Annotated[int, typer.Option(help="Seed for shuffling samples")] = 42,
+    tasks: list[str],
+    base_url: str,
+    model: str | None = None,
+    api_key: str = "",
+    num_concurrent: int = 8,
+    max_retries: int = 3,
+    extra_request_params: str = DEFAULT_GEN_KWARGS_STR,
+    max_samples: int | None = None,
+    output_path: str | None = None,
+    log_samples: bool = False,
+    seed: int = 42,
 ) -> None:
     """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs."""
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")

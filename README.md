@@ -5,7 +5,7 @@
 nano-eval tests against an OpenAI compliant endpoint, specifically the `chat/completions` API.
 
 ```bash
-nano-eval --tasks gsm8k_cot_llama --base-url http://localhost:8000/v1 --max-samples 100
+nano-eval gsm8k_cot_llama http://localhost:8000/v1 --max-samples 100
 
 # prints:
 {
@@ -47,9 +47,7 @@ pip install nano-eval
 
 ```bash
 # Text and Image evals, with custom parameters passed alongside the request
-nano-eval \
-    -t gsm8k_cot_llama -t chartqa \
-    --base-url http://localhost:8000/v1 \
+nano-eval gsm8k_cot_llama chartqa http://localhost:8000/v1 \
     --model llama-3 \
     --num-concurrent 64 \
     --extra-request-params temperature=0.7,max_tokens=1024 \
@@ -72,10 +70,10 @@ print(f"GSM8K: {result['results']['gsm8k_cot_llama']['metrics']}")
 
 ## CLI Arguments
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `-t, --tasks` | Task to evaluate (repeatable) | *required* |
-| `--base-url` | OpenAI-compatible API endpoint | *required* |
+| Argument/Option | Description | Default |
+|-----------------|-------------|---------|
+| `TASKS` | Task(s) to evaluate | *required* |
+| `BASE_URL` | OpenAI-compatible API endpoint | *required* |
 | `--model` | Model name; auto-detected if endpoint serves one | |
 | `--api-key` | Bearer token for API authentication | |
 | `--num-concurrent` | Parallel requests to send | 8 |
