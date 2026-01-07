@@ -77,15 +77,16 @@ Options:
 
 ```python
 import asyncio
-from nano_eval import evaluate
+from nano_eval import evaluate, EvalResult
 
-result = asyncio.run(evaluate(
+result: EvalResult = asyncio.run(evaluate(
     tasks=["gsm8k_cot_llama"],
     base_url="http://localhost:8000/v1",
     model="gpt-4",
     max_samples=100,
 ))
-print(f"GSM8K: {result['results']['gsm8k_cot_llama']['metrics']}")
+gsm8k = result["results"]["gsm8k_cot_llama"]
+print(f"Accuracy: {gsm8k['metrics']['exact_match']:.1%}")
 ```
 
 
