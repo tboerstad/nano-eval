@@ -154,8 +154,9 @@ async def evaluate(
               help="Parallel requests to send")
 @click.option("--max-retries", default=3, show_default=True,
               help="Retry attempts for failed requests")
-@click.option("--extra-request-params", "gen_kwargs", default="",
-              help="Extra API params as key=value,... (e.g. temperature=0.7)")
+@click.option("--extra-request-params", "gen_kwargs",
+              default="temperature=0,max_tokens=256,seed=42", show_default=True,
+              help="API params as key=value,...")
 @click.option("--max-samples", type=int, help="Limit samples per task (default: all)")
 @click.option("--output-path", type=click.Path(),
               help="Write results.json and sample logs to this directory")
@@ -195,14 +196,13 @@ def main(
                 "Please specify --model."
             )
 
-    default_gen_kwargs = {"temperature": 0, "max_tokens": 256, "seed": 42}
     config = APIConfig(
         url=f"{base_url}/chat/completions",
         model=model,
         api_key=api_key,
         num_concurrent=num_concurrent,
         max_retries=max_retries,
-        gen_kwargs={**default_gen_kwargs, **_parse_kwargs(gen_kwargs)},
+        gen_kwargs=_parse_kwargs(gen_kwargs),
     )
 
     task_names = list(tasks)

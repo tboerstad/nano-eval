@@ -97,8 +97,8 @@ Options:
   --num-concurrent INTEGER        Parallel requests to send  [default: 8]
   --max-retries INTEGER           Retry attempts for failed requests
                                   [default: 3]
-  --extra-request-params TEXT     Extra API params as key=value,... (e.g.
-                                  temperature=0.7)
+  --extra-request-params TEXT     API params as key=value,...  [default:
+                                  temperature=0,max_tokens=256,seed=42]
   --max-samples INTEGER           Limit samples per task (default: all)
   --output-path PATH              Write results.json and sample logs to this
                                   directory
