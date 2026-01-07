@@ -205,7 +205,7 @@ async def evaluate(
     show_default=True,
     help="API params as key=value,...",
 )
-@click.option("--max-samples", type=int, help="Limit samples per task (default: all)")
+@click.option("--max-samples", type=int, help="If provided, limit samples per task")
 @click.option(
     "--output-path",
     type=click.Path(),

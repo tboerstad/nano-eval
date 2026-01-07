@@ -64,7 +64,7 @@ Options:
                                   [default: 3]
   --extra-request-params TEXT     API params as key=value,...  [default:
                                   temperature=0,max_tokens=256,seed=42]
-  --max-samples INTEGER           Limit samples per task (default: all)
+  --max-samples INTEGER           If provided, limit samples per task
   --output-path PATH              Write results.json and sample logs to this
                                   directory
   --log-samples                   Save per-sample results as JSONL (requires
