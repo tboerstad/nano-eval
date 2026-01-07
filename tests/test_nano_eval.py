@@ -64,6 +64,10 @@ class TestE2E:
 
         def api_response(request):
             body = json.loads(request.content)
+            # Verify default generation parameters are passed
+            assert body["temperature"] == 0
+            assert body["max_tokens"] == 256
+            assert body["seed"] == 42
             # Extract last user message for multiturn fewshot format
             last_user_msg = [m for m in body["messages"] if m["role"] == "user"][-1]
             prompt = last_user_msg["content"]
