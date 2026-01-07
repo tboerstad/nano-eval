@@ -59,54 +59,32 @@ nano-eval \
 ### Python API
 
 ```python
-import asyncio
-from nano_eval import APIConfig, run_task, TASKS
+from nano_eval import run_eval
 
-BASE_URL = "http://localhost:8000/v1"
-
-# Configure API endpoint
-config = APIConfig(
-    url=f"{BASE_URL}/chat/completions",
+result = run_eval(
+    tasks=["gsm8k_cot_llama"],
+    base_url="http://localhost:8000/v1",
     model="gpt-4",
-    num_concurrent=8
+    max_samples=100,
 )
-
-# Run GSM8K evaluation
-result = asyncio.run(run_task(TASKS["gsm8k_cot_llama"], config, max_samples=100))
-print(f"GSM8K: {result['metrics']}")
+print(f"GSM8K: {result['results']['gsm8k_cot_llama']['metrics']}")
 ```
 
 ## CLI Arguments
 
-```
-$ nano-eval --help
-Usage: nano-eval [OPTIONS]
-
-  Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
-
-  Example: nano-eval -t gsm8k_cot_llama --base-url http://localhost:8000/v1
-
-Options:
-  -t, --tasks [gsm8k_cot_llama|chartqa]
-                                  Task to evaluate (can be repeated)
-                                  [required]
-  --base-url TEXT                 OpenAI-compatible API endpoint  [required]
-  --model TEXT                    Model name; auto-detected if endpoint serves
-                                  one model
-  --api-key TEXT                  Bearer token for API authentication
-  --num-concurrent INTEGER        Parallel requests to send  [default: 8]
-  --max-retries INTEGER           Retry attempts for failed requests
-                                  [default: 3]
-  --extra-request-params TEXT     API params as key=value,...  [default:
-                                  temperature=0,max_tokens=256,seed=42]
-  --max-samples INTEGER           Limit samples per task (default: all)
-  --output-path PATH              Write results.json and sample logs to this
-                                  directory
-  --log-samples                   Save per-sample results as JSONL (requires
-                                  --output-path)
-  --seed INTEGER                  Seed for shuffling samples  [default: 42]
-  --help                          Show this message and exit.
-```
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-t, --tasks` | Task to evaluate (repeatable) | *required* |
+| `--base-url` | OpenAI-compatible API endpoint | *required* |
+| `--model` | Model name; auto-detected if endpoint serves one | |
+| `--api-key` | Bearer token for API authentication | |
+| `--num-concurrent` | Parallel requests to send | 8 |
+| `--max-retries` | Retry attempts for failed requests | 3 |
+| `--extra-request-params` | API params as key=value,... | temperature=0,max_tokens=256,seed=42 |
+| `--max-samples` | Limit samples per task | all |
+| `--output-path` | Directory for results.json and sample logs | |
+| `--log-samples` | Save per-sample results as JSONL | false |
+| `--seed` | Seed for shuffling samples | 42 |
 
 
 This tool is inspired and borrows from: [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness). Please check it out
