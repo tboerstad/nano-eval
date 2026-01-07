@@ -24,12 +24,16 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, TypeAlias, TypedDict
 
 import httpx
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
 from typing_extensions import NotRequired
+
+JsonValue: TypeAlias = (
+    str | int | float | bool | None | dict[str, "JsonValue"] | list["JsonValue"]
+)
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +92,7 @@ class APIConfig:
     num_concurrent: int = 8
     timeout: int = 300
     max_retries: int = 3
-    gen_kwargs: dict[str, Any] = field(default_factory=dict)
+    gen_kwargs: dict[str, JsonValue] = field(default_factory=dict)
 
 
 async def _request(

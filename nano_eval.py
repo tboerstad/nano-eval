@@ -25,7 +25,7 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, TypeAlias, TypedDict
 
 import click
 import httpx
@@ -33,6 +33,10 @@ import httpx
 if TYPE_CHECKING:
     from core import APIConfig, LoggedSample, TaskResult, run_task
     from tasks import TASKS
+
+JsonValue: TypeAlias = (
+    str | int | float | bool | None | dict[str, "JsonValue"] | list["JsonValue"]
+)
 
 __all__ = ["run_eval", "EvalResult", "APIConfig", "run_task", "TASKS", "evaluate"]
 
@@ -49,7 +53,7 @@ class EvalResult(TypedDict):
     config: ConfigInfo
 
 
-def _parse_kwargs(s: str) -> dict[str, str | int | float]:
+def _parse_kwargs(s: str) -> dict[str, JsonValue]:
     """Parse 'key=value,key=value' into dict."""
     if not s:
         return {}
@@ -144,7 +148,11 @@ async def evaluate(
     return eval_result
 
 
-DEFAULT_GEN_KWARGS: dict[str, Any] = {"temperature": 0, "max_tokens": 256, "seed": 42}
+DEFAULT_GEN_KWARGS: dict[str, JsonValue] = {
+    "temperature": 0,
+    "max_tokens": 256,
+    "seed": 42,
+}
 
 
 def run_eval(
@@ -154,7 +162,7 @@ def run_eval(
     api_key: str = "",
     num_concurrent: int = 8,
     max_retries: int = 3,
-    gen_kwargs: dict[str, Any] | None = None,
+    gen_kwargs: dict[str, JsonValue] | None = None,
     max_samples: int | None = None,
     output_path: Path | str | None = None,
     log_samples: bool = False,
