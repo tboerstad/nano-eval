@@ -24,6 +24,7 @@ import asyncio
 import hashlib
 import json
 import logging
+from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict
 
@@ -178,6 +179,7 @@ async def evaluate(
 
 
 @click.command()
+@click.version_option(version=version("nano-eval"), prog_name="nano-eval")
 @click.option(
     "-t",
     "--tasks",
@@ -235,6 +237,8 @@ def main(
     """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
 
     Example: nano-eval -t gsm8k_cot_llama --base-url http://localhost:8000/v1
+
+    Use --version to display the version and exit.
     """
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
