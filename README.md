@@ -3,7 +3,7 @@
 ## Quickstart
 
 ```bash
-uvx nano-eval -t gsm8k_cot_llama -t chartqa --base-url http://localhost:8000/v1 --max-samples 100
+uvx nano-eval -t text -t vision --base-url http://localhost:8000/v1 --max-samples 100
 
 # prints:
 Task    Accuracy  Samples  Duration
@@ -14,12 +14,12 @@ vision    71.8%      100       38s
 
 > **Note:** This tool is for eyeballing the accuracy of a model. One example use case is comparing relative accuracy between inference frameworks (e.g., vLLM vs SGLang vs MAX running the same model).
 
-## Supported Tasks
+## Supported Types
 
-| Task | Type | Dataset | Description |
-|------|------|---------|-------------|
-| `gsm8k_cot_llama` | Text | gsm8k | Grade school math with chain-of-thought (8-shot) |
-| `chartqa` | Multimodal | HuggingFaceM4/ChartQA | Chart question answering with images |
+| Type | Dataset | Description |
+|------|---------|-------------|
+| `text` | gsm8k | Grade school math with chain-of-thought (8-shot) |
+| `vision` | HuggingFaceM4/ChartQA | Chart question answering with images |
 
 ## Usage
 
@@ -29,11 +29,10 @@ Usage: nano-eval [OPTIONS]
 
   Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
 
-  Example: nano-eval -t gsm8k_cot_llama --base-url http://localhost:8000/v1
+  Example: nano-eval -t text --base-url http://localhost:8000/v1
 
 Options:
-  -t, --tasks [gsm8k_cot_llama|chartqa]
-                                  Task to evaluate (can be repeated)
+  -t, --type [text|vision]        Type to evaluate (can be repeated)
                                   [required]
   --base-url TEXT                 OpenAI-compatible API endpoint  [required]
   --model TEXT                    Model name; auto-detected if endpoint serves
@@ -47,7 +46,7 @@ Options:
                                   directory
   --log-samples                   Save per-sample results as JSONL (requires
                                   --output-path)
-  --seed INTEGER                  Seed for shuffling samples  [default: 42]
+  --seed INTEGER                  Controls sample order  [default: 42]
   --version                       Show the version and exit.
   --help                          Show this message and exit.
 ```
@@ -59,13 +58,13 @@ import asyncio
 from nano_eval import evaluate, EvalResult
 
 result: EvalResult = asyncio.run(evaluate(
-    tasks=["gsm8k_cot_llama"],
+    types=["text"],
     base_url="http://localhost:8000/v1",
     model="gpt-4",
     max_samples=100,
 ))
-gsm8k = result["results"]["gsm8k_cot_llama"]
-print(f"Accuracy: {gsm8k['metrics']['exact_match']:.1%}")
+text_result = result["results"]["text"]
+print(f"Accuracy: {text_result['metrics']['exact_match']:.1%}")
 ```
 
 

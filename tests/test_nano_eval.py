@@ -97,12 +97,12 @@ class TestE2E:
                 side_effect=api_response
             )
 
-            with patch.dict("tasks.TASKS", {"gsm8k_cot_llama": task}):
+            with patch.dict("tasks.TASKS", {"text": task}):
                 runner = CliRunner()
                 result = runner.invoke(
                     main,
                     [
-                        "--tasks=gsm8k_cot_llama",
+                        "--type=text",
                         "--base-url=http://test.com/v1",
                         "--max-samples=10",
                         "--output-path",
@@ -113,8 +113,8 @@ class TestE2E:
                 assert result.exit_code == 0, result.output
 
         results = json.loads((tmp_path / "results.json").read_text())
-        assert results["results"]["gsm8k_cot_llama"]["metrics"]["exact_match"] == 0.7
-        assert results["results"]["gsm8k_cot_llama"]["task_hash"] == GSM8K_HASH
+        assert results["results"]["text"]["metrics"]["exact_match"] == 0.7
+        assert results["results"]["text"]["task_hash"] == GSM8K_HASH
 
         samples = [
             json.loads(line)
@@ -161,12 +161,12 @@ class TestE2E:
                 side_effect=api_response
             )
 
-            with patch.dict("tasks.TASKS", {"chartqa": task}):
+            with patch.dict("tasks.TASKS", {"vision": task}):
                 runner = CliRunner()
                 result = runner.invoke(
                     main,
                     [
-                        "--tasks=chartqa",
+                        "--type=vision",
                         "--base-url=http://test.com/v1",
                         "--model=test",
                         "--max-samples=10",
@@ -178,8 +178,8 @@ class TestE2E:
                 assert result.exit_code == 0, result.output
 
         results = json.loads((tmp_path / "results.json").read_text())
-        assert results["results"]["chartqa"]["metrics"]["exact_match"] == 0.7
-        assert results["results"]["chartqa"]["task_hash"] == CHARTQA_HASH
+        assert results["results"]["vision"]["metrics"]["exact_match"] == 0.7
+        assert results["results"]["vision"]["task_hash"] == CHARTQA_HASH
 
         samples = [
             json.loads(line)
