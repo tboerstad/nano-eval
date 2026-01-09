@@ -84,6 +84,9 @@ class TestE2E:
         )
 
         with respx.mock:
+            respx.get("http://test.com/v1/chat/completions").mock(
+                return_value=Response(200)
+            )
             respx.get("http://test.com/v1/models").mock(
                 return_value=Response(
                     200, json={"object": "list", "data": [{"id": "test"}]}
@@ -147,6 +150,9 @@ class TestE2E:
         )
 
         with respx.mock:
+            respx.get("http://test.com/v1/chat/completions").mock(
+                return_value=Response(200)
+            )
             respx.post("http://test.com/v1/chat/completions").mock(
                 side_effect=api_response
             )
