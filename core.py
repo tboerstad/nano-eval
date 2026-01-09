@@ -18,6 +18,7 @@ import logging
 import math
 import os
 import re
+import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -290,3 +291,9 @@ def enable_offline_if_cached(dataset: str, revision: str) -> None:
         )
         if cache.is_dir() and any(cache.iterdir()):
             os.environ["HF_HUB_OFFLINE"] = "1"
+            print(f"Using cached {dataset} dataset.", file=sys.stderr)
+        else:
+            print(
+                f"{dataset} not found in cache, downloading from Hugging Face...",
+                file=sys.stderr,
+            )
