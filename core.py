@@ -120,7 +120,7 @@ async def _request(
 async def complete(
     prompts: list[str | tuple[str, list] | list[dict[str, str]]],
     config: APIConfig,
-    task_type: str = "text",
+    progress_desc: str = "Running text evals",
 ) -> list[str]:
     """
     Run batch of chat completions.
@@ -163,8 +163,7 @@ async def complete(
 
             tasks.append(_request(client, config.url, payload, config.max_retries))
 
-        desc = "Running vision evals" if task_type == "vision" else "Running text evals"
-        return list(await tqdm_asyncio.gather(*tasks, desc=desc, leave=False))
+        return list(await tqdm_asyncio.gather(*tasks, desc=progress_desc, leave=False))
 
 
 def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
@@ -254,7 +253,10 @@ async def run_task(
 
     logger.info("Evaluating: %s (%d samples)", task.name, len(samples))
     t0 = time.perf_counter()
-    responses = await complete(prompts, config, task.task_type)
+    desc = (
+        "Running vision evals" if task.task_type == "vision" else "Running text evals"
+    )
+    responses = await complete(prompts, config, desc)
     elapsed = time.perf_counter() - t0
 
     scores = [task.score(r, s.target) for r, s in zip(responses, samples)]
