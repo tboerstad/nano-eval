@@ -12,7 +12,7 @@ text      84.3%      100       45s
 vision    71.8%      100       38s
 ```
 
-> **Note:** This tool is designed for **comparing relative accuracy between inference frameworks** (e.g., vLLM vs SGLang vs MAX running the same model).
+> **Note:** This tool is for eyeballing the accuracy of a model, not comprehensive evaluation. One example use case is comparing relative accuracy between inference frameworks (e.g., vLLM vs SGLang vs MAX running the same model).
 
 ## Supported Tasks
 
