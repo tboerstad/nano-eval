@@ -116,7 +116,7 @@ async def evaluate(
         base_url: OpenAI-compatible API endpoint (e.g. http://localhost:8000/v1)
         model: Model name. Auto-detected if endpoint serves exactly one model.
         api_key: Bearer token for API authentication
-        max_concurrent: Max parallel requests
+        max_concurrent: Max parallel HTTP requests
         max_retries: Retry attempts for failed requests
         gen_kwargs: API params like temperature, max_tokens, seed
         max_samples: Optional limit on samples per task
@@ -214,7 +214,7 @@ def _print_results_table(result: EvalResult) -> None:
 @click.option("--model", help="Model name; auto-detected if endpoint serves one model")
 @click.option("--api-key", default="", help="Bearer token for API authentication")
 @click.option(
-    "--max-concurrent", default=8, show_default=True, help="Max parallel requests"
+    "--max-concurrent", default=8, show_default=True, help="Max parallel HTTP requests"
 )
 @click.option(
     "--max-retries",
