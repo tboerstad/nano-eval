@@ -46,6 +46,10 @@ below defined for real world testing. If you're asked to test against a real end
   - **Exception**: Functions called only after CLI arg parsing (`evaluate()`) may defer expensive imports to keep `--help` fast (~0.3s vs ~2.2s).
 - **High SNR comments only**: Comments should be useful for future readers who lack context. Don't add comments that only make sense in the context of our conversation (e.g., "Required - set via CLI" or "Fixed per review"). If a comment wouldn't help someone reading the code cold, don't add it.
 
+## Documentation
+
+- **Keep README.md in sync**: When changing CLI options or the public API, update `README.md` to reflect those changes.
+
 ## Testing
 
 - **Minimal test count**: Don't add many new tests for a feature. Prefer baking coverage into existing E2E tests rather than creating separate test classes or methods.
