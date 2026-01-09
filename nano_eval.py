@@ -193,11 +193,11 @@ async def evaluate(
 
 def _print_results_table(result: EvalResult) -> None:
     """Print a mini results table."""
-    print("Task    Accuracy  Samples  Seconds")
-    print("------  --------  -------  -------")
+    print("Task    Accuracy  Samples  Duration")
+    print("------  --------  -------  --------")
     for r in result["results"].values():
         print(
-            f"{r['task_type']:<6}  {r['metrics']['exact_match']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}"
+            f"{r['task_type']:<6}  {r['metrics']['exact_match']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s"
         )
 
 
