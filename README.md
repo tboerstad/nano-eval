@@ -4,8 +4,10 @@
 
 nano-eval tests against an OpenAI compliant endpoint, specifically the `chat/completions` API.
 
+## Quickstart
+
 ```bash
-nano-eval -t gsm8k_cot_llama -t chartqa --base-url http://localhost:8000/v1 --max-samples 100
+uvx nano-eval -t gsm8k_cot_llama -t chartqa --base-url http://localhost:8000/v1 --max-samples 100
 
 # prints:
 Task    Accuracy  Samples  Duration
@@ -20,12 +22,6 @@ vision    71.8%      100       38s
 |------|------|---------|-------------|
 | `gsm8k_cot_llama` | Text | gsm8k | Grade school math with chain-of-thought (8-shot) |
 | `chartqa` | Multimodal | HuggingFaceM4/ChartQA | Chart question answering with images |
-
-## Installation
-
-```bash
-pip install nano-eval
-```
 
 ## Usage
 
