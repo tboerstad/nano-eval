@@ -68,6 +68,15 @@ def _parse_kwargs(s: str) -> dict[str, str | int | float]:
     return result
 
 
+def _check_endpoint(url: str, api_key: str = "") -> None:
+    """Verify API endpoint is reachable. Raises ValueError with user-friendly message."""
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+    try:
+        httpx.get(url, headers=headers, timeout=10)
+    except httpx.ConnectError:
+        raise ValueError(f"Connection failed: {url}\nIs the server running?")
+
+
 def _list_models(base_url: str, api_key: str = "") -> list[str]:
     """Fetch available models from the API's /models endpoint."""
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
@@ -122,6 +131,7 @@ async def evaluate(
     from tasks import TASKS
 
     base_url = base_url.rstrip("/")
+    _check_endpoint(f"{base_url}/chat/completions", api_key)
 
     if model is None:
         models = _list_models(base_url, api_key)
