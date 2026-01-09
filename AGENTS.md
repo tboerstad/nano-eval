@@ -49,3 +49,7 @@ below defined for real world testing. If you're asked to test against a real end
 ## Testing
 
 - **Minimal test count**: Don't add many new tests for a feature. Prefer baking coverage into existing E2E tests rather than creating separate test classes or methods.
+
+## Documentation
+
+- **CLI flag changes**: When adding or modifying CLI flags in `nano_eval.py`, update the README.md with the new usage examples.

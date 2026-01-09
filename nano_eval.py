@@ -7,15 +7,11 @@ Responsibilities:
 - Output JSON
 
 Architecture:
-    nano_eval.py (CLI, orchestration)
-         │
-    ┌────┴────┐
-  core.py   tasks/
-  APIConfig   TASKS registry
-  complete()  gsm8k.py
-  run_task()  chartqa.py
+  nano_eval.py: CLI, orchestration
+  core.py: APIConfig, complete(), run_task()
+  tasks/: TASKS registry (gsm8k.py, chartqa.py)
 
-Flow: CLI → APIConfig → evaluate() → TASKS[name]() → JSON
+Flow: CLI → evaluate() → TASKS[name]() → JSON
 """
 
 from __future__ import annotations
