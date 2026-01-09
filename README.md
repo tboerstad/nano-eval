@@ -10,8 +10,8 @@ nano-eval -t gsm8k_cot_llama -t chartqa --base-url http://localhost:8000/v1 --ma
 # prints:
 Task    Accuracy  Samples  Duration
 ------  --------  -------  --------
-text      85.0%      100       45s
-vision    72.0%      100       38s
+text      84.3%      100       45s
+vision    71.8%      100       38s
 ```
 
 ## Supported Tasks
