@@ -60,7 +60,7 @@ def _check_endpoint(url: str, api_key: str = "") -> None:
     try:
         httpx.get(url, headers=headers, timeout=10)
     except httpx.ConnectError:
-        raise ValueError(f"Connection failed: {url}\nIs the server running?")
+        raise ValueError(f"No response from {url}\nIs the server running?")
 
 
 def _list_models(base_url: str, api_key: str = "") -> list[str]:
