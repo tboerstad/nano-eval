@@ -87,7 +87,6 @@ async def evaluate(
     model: str | None = None,
     api_key: str = "",
     max_concurrent: int = 8,
-    max_retries: int = 3,
     gen_kwargs: dict[str, Any] | None = None,
     max_samples: int | None = None,
     output_path: Path | None = None,
@@ -131,7 +130,6 @@ async def evaluate(
         model=model,
         api_key=api_key,
         max_concurrent=max_concurrent,
-        max_retries=max_retries,
         gen_kwargs=gen_kwargs or {},
     )
 
@@ -197,7 +195,6 @@ def _print_results_table(result: EvalResult) -> None:
 @click.option("--model", help="Model name; auto-detected if endpoint serves one model")
 @click.option("--api-key", default="", help="Bearer token for API authentication")
 @click.option("--max-concurrent", default=8, show_default=True)
-@click.option("--max-retries", default=3, show_default=True)
 @click.option(
     "--extra-request-params",
     "gen_kwargs",
@@ -224,7 +221,6 @@ def main(
     model: str | None,
     api_key: str,
     max_concurrent: int,
-    max_retries: int,
     gen_kwargs: str,
     max_samples: int | None,
     output_path: str | None,
@@ -245,7 +241,6 @@ def main(
                 model=model,
                 api_key=api_key,
                 max_concurrent=max_concurrent,
-                max_retries=max_retries,
                 gen_kwargs=_parse_kwargs(gen_kwargs),
                 max_samples=max_samples,
                 output_path=Path(output_path) if output_path else None,

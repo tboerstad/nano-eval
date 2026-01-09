@@ -39,9 +39,7 @@ Options:
   --model TEXT                    Model name; auto-detected if endpoint serves
                                   one model
   --api-key TEXT                  Bearer token for API authentication
-  --num-concurrent INTEGER        Parallel requests to send  [default: 8]
-  --max-retries INTEGER           Retry attempts for failed requests
-                                  [default: 3]
+  --max-concurrent INTEGER        [default: 8]
   --extra-request-params TEXT     API params as key=value,...  [default:
                                   temperature=0,max_tokens=256,seed=42]
   --max-samples INTEGER           If provided, limit samples per task

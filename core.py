@@ -12,7 +12,6 @@ Responsibilities:
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import hashlib
 import logging
@@ -77,9 +76,6 @@ class Task:
     score: Callable[[str, str], float]  # (response, target) -> score
 
 
-MAX_BACKOFF = 8  # Cap exponential backoff at 8 seconds
-
-
 @dataclass
 class APIConfig:
     """API configuration."""
@@ -89,7 +85,6 @@ class APIConfig:
     api_key: str = ""
     max_concurrent: int = 8
     timeout: int = 300
-    max_retries: int = 3
     gen_kwargs: dict[str, Any] = field(default_factory=dict)
 
 
@@ -97,24 +92,12 @@ async def _request(
     client: httpx.AsyncClient,
     url: str,
     payload: dict[str, Any],
-    max_retries: int,
 ) -> str:
-    """Single request with retries. Raises RuntimeError if all retries fail."""
-    for attempt in range(max_retries):
-        try:
-            resp = await client.post(url, json=payload)
-            if resp.is_success:
-                return resp.json()["choices"][0]["message"]["content"]
-            logger.warning("Request failed (attempt %d): %s", attempt + 1, resp.text)
-        except asyncio.CancelledError:
-            raise  # Allow the program to exit immediately on Ctrl+C
-        except httpx.HTTPError as e:
-            logger.warning("Request error (attempt %d): %s", attempt + 1, e)
-        if attempt < max_retries - 1:
-            await asyncio.sleep(min(2**attempt, MAX_BACKOFF))
-    raise RuntimeError(
-        f"Failed to get response from {url} after {max_retries} attempts"
-    )
+    """Single request. Raises RuntimeError on failure."""
+    resp = await client.post(url, json=payload)
+    if resp.is_success:
+        return resp.json()["choices"][0]["message"]["content"]
+    raise RuntimeError(f"Request failed: {resp.text}")
 
 
 async def complete(
@@ -160,7 +143,7 @@ async def complete(
                 **config.gen_kwargs,
             }
 
-            tasks.append(_request(client, config.url, payload, config.max_retries))
+            tasks.append(_request(client, config.url, payload))
 
         return list(await tqdm_asyncio.gather(*tasks, desc="Completing"))
 
