@@ -279,6 +279,8 @@ def main(
                 seed=seed,
             )
         )
+    except KeyboardInterrupt:
+        raise SystemExit(130) from None
     except ValueError as e:
         raise click.UsageError(str(e)) from None
 
