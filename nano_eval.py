@@ -1,7 +1,7 @@
 """
 nano-eval CLI entry point.
 
-CLI args → APIConfig → evaluate() → TASKS[name]() → JSON output
+CLI args → APIConfig → evaluate() → TASKS[type]() → JSON output
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ def _write_samples_jsonl(
 
 
 async def evaluate(
-    tasks: list[str],
+    types: list[str],
     base_url: str,
     model: str | None = None,
     api_key: str = "",
@@ -94,10 +94,10 @@ async def evaluate(
     seed: int = 42,
 ) -> EvalResult:
     """
-    Run evaluations for specified tasks.
+    Run evaluations for specified types.
 
     Args:
-        tasks: List of task names to evaluate
+        types: List of types to evaluate ("text" or "vision")
         base_url: OpenAI-compatible API endpoint (e.g. http://localhost:8000/v1)
         model: Model name. Auto-detected if endpoint serves exactly one model.
         api_key: Bearer token for API authentication
@@ -140,14 +140,17 @@ async def evaluate(
     task_hashes: list[str] = []
     total_seconds = 0.0
 
-    for name in tasks:
-        if name not in TASKS:
-            raise ValueError(f"Unknown task: {name}. Available: {list(TASKS.keys())}")
-        result = await run_task(TASKS[name], config, max_samples, seed)
+    for type_name in types:
+        if type_name not in TASKS:
+            raise ValueError(
+                f"Unknown type: {type_name}. Available: {list(TASKS.keys())}"
+            )
+        task = TASKS[type_name]
+        result = await run_task(task, config, max_samples, seed)
         task_hashes.append(result["task_hash"])
         if output_path and log_samples:
-            _write_samples_jsonl(output_path, name, result["samples"])
-        results[name] = TaskResult(
+            _write_samples_jsonl(output_path, task.name, result["samples"])
+        results[type_name] = TaskResult(
             task=result["task"],
             task_type=result["task_type"],
             task_hash=result["task_hash"],
@@ -185,11 +188,12 @@ def _print_results_table(result: EvalResult) -> None:
 @click.command()
 @click.option(
     "-t",
-    "--tasks",
-    type=click.Choice(["gsm8k_cot_llama", "chartqa"]),
+    "--type",
+    "types",
+    type=click.Choice(["text", "vision"]),
     required=True,
     multiple=True,
-    help="Task to evaluate (can be repeated)",
+    help="Type to evaluate (can be repeated)",
 )
 @click.option("--base-url", required=True, help="OpenAI-compatible API endpoint")
 @click.option("--model", help="Model name; auto-detected if endpoint serves one model")
@@ -216,7 +220,7 @@ def _print_results_table(result: EvalResult) -> None:
 @click.option("--seed", default=42, show_default=True, help="Controls sample order")
 @click.version_option(version=version("nano-eval"), prog_name="nano-eval")
 def main(
-    tasks: tuple[str, ...],
+    types: tuple[str, ...],
     base_url: str,
     model: str | None,
     api_key: str,
@@ -229,13 +233,13 @@ def main(
 ) -> None:
     """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
 
-    Example: nano-eval -t gsm8k_cot_llama --base-url http://localhost:8000/v1
+    Example: nano-eval -t text --base-url http://localhost:8000/v1
     """
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
     result = asyncio.run(
         evaluate(
-            tasks=list(tasks),
+            types=list(types),
             base_url=base_url,
             model=model,
             api_key=api_key,
