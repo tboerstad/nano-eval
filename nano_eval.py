@@ -233,23 +233,20 @@ def main(
     """
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
-    try:
-        result = asyncio.run(
-            evaluate(
-                tasks=list(tasks),
-                base_url=base_url,
-                model=model,
-                api_key=api_key,
-                max_concurrent=max_concurrent,
-                gen_kwargs=_parse_kwargs(gen_kwargs),
-                max_samples=max_samples,
-                output_path=Path(output_path) if output_path else None,
-                log_samples=log_samples,
-                seed=seed,
-            )
+    result = asyncio.run(
+        evaluate(
+            tasks=list(tasks),
+            base_url=base_url,
+            model=model,
+            api_key=api_key,
+            max_concurrent=max_concurrent,
+            gen_kwargs=_parse_kwargs(gen_kwargs),
+            max_samples=max_samples,
+            output_path=Path(output_path) if output_path else None,
+            log_samples=log_samples,
+            seed=seed,
         )
-    except ValueError as e:
-        raise click.UsageError(str(e)) from None
+    )
 
     _print_results_table(result)
 
