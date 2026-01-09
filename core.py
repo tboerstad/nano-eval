@@ -120,7 +120,7 @@ async def _request(
 async def complete(
     prompts: list[str | tuple[str, list] | list[dict[str, str]]],
     config: APIConfig,
-    progress_desc: str = "Running text evals",
+    progress_desc: str = "Running evals",
 ) -> list[str]:
     """
     Run batch of chat completions.
