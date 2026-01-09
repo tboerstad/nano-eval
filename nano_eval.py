@@ -43,6 +43,7 @@ class ConfigInfo(TypedDict):
 
 
 class EvalResult(TypedDict):
+    framework_version: str
     results: dict[str, TaskResult]
     eval_hash: str
     total_seconds: float
@@ -165,6 +166,7 @@ async def evaluate(
         total_seconds += result["elapsed_seconds"]
 
     eval_result: EvalResult = {
+        "framework_version": version("nano-eval"),
         "results": results,
         "eval_hash": hashlib.sha256("".join(sorted(task_hashes)).encode()).hexdigest(),
         "total_seconds": round(total_seconds, 2),
