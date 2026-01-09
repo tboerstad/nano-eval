@@ -1,22 +1,4 @@
-"""
-nano-eval CLI entry point.
-
-Responsibilities:
-- Parse CLI args (tasks, model, endpoint, concurrency)
-- Create APIConfig, run tasks
-- Output JSON
-
-Architecture:
-    nano_eval.py (CLI, orchestration)
-         │
-    ┌────┴────┐
-  core.py   tasks/
-  APIConfig   TASKS registry
-  complete()  gsm8k.py
-  run_task()  chartqa.py
-
-Flow: CLI → APIConfig → evaluate() → TASKS[name]() → JSON
-"""
+"""CLI entry point and evaluation orchestration."""
 
 from __future__ import annotations
 

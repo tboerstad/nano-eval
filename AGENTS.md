@@ -49,3 +49,7 @@ below defined for real world testing. If you're asked to test against a real end
 ## Testing
 
 - **Minimal test count**: Don't add many new tests for a feature. Prefer baking coverage into existing E2E tests rather than creating separate test classes or methods.
+
+## Documentation
+
+- **README help text**: The README contains hardcoded `--help` output. Update it when CLI flags change.

@@ -1,20 +1,11 @@
-"""
-GSM8K evaluation - grade school math with chain-of-thought.
-
-Defines:
-- samples(): generator yielding (prompt, target) pairs
-- score(): normalized string matching
-- gsm8k_cot_llama: Task instance for registration
-"""
+"""GSM8K evaluation task with chain-of-thought prompting."""
 
 from __future__ import annotations
 
 import re
+from typing import Any
 
-import datasets
-from datasets import Dataset, DownloadMode
-
-from core import Sample, Task, _normalize, enable_offline_if_cached
+from core import Sample, Task, _normalize, load_samples
 
 _GSM8K_REVISION = "cc7b047b6e5bb11b4f1af84efc572db110a51b3c"
 
@@ -99,36 +90,23 @@ def _extract_gsm8k_answer(response: str) -> str:
     return response
 
 
+def _transform(doc: Any) -> Sample:
+    return Sample(
+        prompt=_format_gsm8k_prompt(doc["question"]),
+        target=_parse_target(doc["answer"]),
+    )
+
+
 def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
-    """Load GSM8K samples: (formatted_prompt, target_answer)."""
-    enable_offline_if_cached("gsm8k", _GSM8K_REVISION)
-    result: list[Sample] = []
-    remaining = max_samples
-    for split in ["test", "train"]:
-        if remaining is not None and remaining <= 0:
-            break
-        ds = datasets.load_dataset(
-            "gsm8k",
-            "main",
-            split=split,
-            revision=_GSM8K_REVISION,
-            download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
-        )
-        assert isinstance(ds, Dataset)
-        if seed is not None:
-            ds = ds.shuffle(seed=seed)
-        if remaining is not None:
-            ds = ds.select(range(min(remaining, len(ds))))
-        for doc in ds:
-            result.append(
-                Sample(
-                    prompt=_format_gsm8k_prompt(doc["question"]),
-                    target=_parse_target(doc["answer"]),
-                )
-            )
-        if max_samples is not None:
-            remaining = max_samples - len(result)
-    return result
+    return load_samples(
+        dataset="gsm8k",
+        revision=_GSM8K_REVISION,
+        splits=["test", "train"],
+        transform=_transform,
+        max_samples=max_samples,
+        seed=seed,
+        subset="main",
+    )
 
 
 def score(response: str, target: str) -> float:

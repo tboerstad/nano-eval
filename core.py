@@ -1,14 +1,4 @@
-"""
-Core utilities for nano-eval.
-
-Responsibilities:
-- APIConfig: endpoint, model, concurrency, timeout
-- Sample/Task: minimal task abstraction (generator + scorer)
-- complete(): async batch chat completions (OpenAI-compatible)
-- run_task(): evaluate a Task, return TaskResult
-- _normalize(): text normalization for comparison
-- _encode_image(): PIL→base64; rejects remote URLs
-"""
+"""Core evaluation engine: API client, task runner, and scoring utilities."""
 
 from __future__ import annotations
 
@@ -284,7 +274,7 @@ async def run_task(
     )
 
 
-def enable_offline_if_cached(dataset: str, revision: str) -> None:
+def _enable_offline_if_cached(dataset: str, revision: str) -> None:
     """Avoid HF Hub network calls when cache exists.
 
     Even with pinned revisions and cached data, HF still makes HEAD requests
@@ -303,3 +293,41 @@ def enable_offline_if_cached(dataset: str, revision: str) -> None:
         )
         if cache.is_dir() and any(cache.iterdir()):
             os.environ["HF_HUB_OFFLINE"] = "1"
+
+
+def load_samples(
+    dataset: str,
+    revision: str,
+    splits: list[str],
+    transform: Callable[[Any], Sample],
+    max_samples: int | None = None,
+    seed: int | None = None,
+    subset: str | None = None,
+) -> list[Sample]:
+    """Load samples from a HuggingFace dataset across splits."""
+    import datasets as hf_datasets
+    from datasets import Dataset, DownloadMode
+
+    _enable_offline_if_cached(dataset, revision)
+    result: list[Sample] = []
+    remaining = max_samples
+    for split in splits:
+        if remaining is not None and remaining <= 0:
+            break
+        load_args = [dataset] if subset is None else [dataset, subset]
+        ds = hf_datasets.load_dataset(
+            *load_args,
+            split=split,
+            revision=revision,
+            download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
+        )
+        assert isinstance(ds, Dataset)
+        if seed is not None:
+            ds = ds.shuffle(seed=seed)
+        if remaining is not None:
+            ds = ds.select(range(min(remaining, len(ds))))
+        for doc in ds:
+            result.append(transform(doc))
+        if max_samples is not None:
+            remaining = max_samples - len(result)
+    return result
