@@ -24,6 +24,7 @@ import asyncio
 import hashlib
 import json
 import logging
+from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict
 
@@ -219,6 +220,7 @@ async def evaluate(
 @click.option(
     "--seed", default=42, show_default=True, help="Seed for shuffling samples"
 )
+@click.version_option(version=version("nano-eval"), prog_name="nano-eval")
 def main(
     tasks: tuple[str, ...],
     base_url: str,

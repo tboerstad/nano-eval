@@ -70,6 +70,7 @@ Options:
   --log-samples                   Save per-sample results as JSONL (requires
                                   --output-path)
   --seed INTEGER                  Seed for shuffling samples  [default: 42]
+  --version                       Show the version and exit.
   --help                          Show this message and exit.
 ```
 
