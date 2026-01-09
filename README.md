@@ -1,11 +1,9 @@
-**nano-eval** is a minimal tool for measuring the quality of a text or vision model. This is done by measuring the accuracy on hard coded datasets with known answers.
+**nano-eval** is a minimal tool for measuring the quality of a text or vision model.
 
-> **Note:** This tool is designed for **comparing relative accuracy between inference frameworks** (e.g., vLLM vs SGLang vs MAX running the same model). It is not intended for absolute benchmark evaluations (there's only two datasets). Use it to verify that different serving backends produce consistent results or track results over time. 
-
-nano-eval tests against an OpenAI compliant endpoint, specifically the `chat/completions` API.
+## Quickstart
 
 ```bash
-nano-eval -t gsm8k_cot_llama -t chartqa --base-url http://localhost:8000/v1 --max-samples 100
+uvx nano-eval -t gsm8k_cot_llama -t chartqa --base-url http://localhost:8000/v1 --max-samples 100
 
 # prints:
 Task    Accuracy  Samples  Duration
@@ -14,18 +12,14 @@ text      84.3%      100       45s
 vision    71.8%      100       38s
 ```
 
+> **Note:** This tool is for eyeballing the accuracy of a model. One example use case is comparing relative accuracy between inference frameworks (e.g., vLLM vs SGLang vs MAX running the same model).
+
 ## Supported Tasks
 
 | Task | Type | Dataset | Description |
 |------|------|---------|-------------|
 | `gsm8k_cot_llama` | Text | gsm8k | Grade school math with chain-of-thought (8-shot) |
 | `chartqa` | Multimodal | HuggingFaceM4/ChartQA | Chart question answering with images |
-
-## Installation
-
-```bash
-pip install nano-eval
-```
 
 ## Usage
 
