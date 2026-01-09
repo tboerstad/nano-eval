@@ -230,7 +230,7 @@ def _print_results_table(result: EvalResult) -> None:
     is_flag=True,
     help="Save per-sample results as JSONL (requires --output-path)",
 )
-@click.option("--seed", default=42, show_default=True)
+@click.option("--seed", default=42, show_default=True, help="Controls sample order")
 @click.version_option(version=version("nano-eval"), prog_name="nano-eval")
 def main(
     tasks: tuple[str, ...],
