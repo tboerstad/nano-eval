@@ -5,27 +5,13 @@
 nano-eval tests against an OpenAI compliant endpoint, specifically the `chat/completions` API.
 
 ```bash
-nano-eval --tasks gsm8k_cot_llama --base-url http://localhost:8000/v1 --max-samples 100
+nano-eval -t gsm8k_cot_llama -t chartqa --base-url http://localhost:8000/v1 --max-samples 100
 
 # prints:
-{
-  "results": {
-    "gsm8k_cot_llama": {
-      "task": "gsm8k_cot_llama",
-      "task_hash": "abc123...",
-      "metrics": {"exact_match": 0.85, "exact_match_stderr": 0.036},
-      "num_samples": 100,
-      "elapsed_seconds": 45.2
-    }
-  },
-  "eval_hash": "def456...",
-  "total_seconds": 45.2,
-  "config": {
-    "model": "gpt-4",
-    "max_samples": 100
-  }
-}
-
+Task    Accuracy  Samples  Duration
+------  --------  -------  --------
+text      84.3%      100       45s
+vision    71.8%      100       38s
 ```
 
 ## Supported Tasks

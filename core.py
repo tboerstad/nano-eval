@@ -49,6 +49,7 @@ class LoggedSample(TypedDict):
 
 class TaskResult(TypedDict):
     task: str
+    task_type: str
     task_hash: str
     metrics: Metrics
     num_samples: int
@@ -71,6 +72,7 @@ class Task:
     """Minimal task definition: a loader of samples + a scoring function."""
 
     name: str
+    task_type: str  # "text" or "vision"
     samples: Callable[[int | None, int | None], list[Sample]]  # (max_samples, seed)
     score: Callable[[str, str], float]  # (response, target) -> score
 
@@ -273,6 +275,7 @@ async def run_task(
     ]
     return TaskResult(
         task=task.name,
+        task_type=task.task_type,
         task_hash=task_hash,
         metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
         num_samples=n,

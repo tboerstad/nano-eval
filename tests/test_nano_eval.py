@@ -79,6 +79,7 @@ class TestE2E:
 
         task = Task(
             name="gsm8k_cot_llama",
+            task_type="text",
             samples=lambda n, seed: real_samples,
             score=gsm8k_score,
         )
@@ -146,7 +147,10 @@ class TestE2E:
             return Response(200, json={"choices": [{"message": {"content": content}}]})
 
         task = Task(
-            name="chartqa", samples=lambda n, seed: real_samples, score=chartqa_score
+            name="chartqa",
+            task_type="vision",
+            samples=lambda n, seed: real_samples,
+            score=chartqa_score,
         )
 
         with respx.mock:

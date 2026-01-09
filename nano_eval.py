@@ -168,6 +168,7 @@ async def evaluate(
             _write_samples_jsonl(output_path, name, result["samples"])
         results[name] = TaskResult(
             task=result["task"],
+            task_type=result["task_type"],
             task_hash=result["task_hash"],
             metrics=result["metrics"],
             num_samples=result["num_samples"],
@@ -188,6 +189,16 @@ async def evaluate(
             json.dump(eval_result, f, indent=2)
 
     return eval_result
+
+
+def _print_results_table(result: EvalResult) -> None:
+    """Print a mini results table."""
+    print("Task    Accuracy  Samples  Duration")
+    print("------  --------  -------  --------")
+    for r in result["results"].values():
+        print(
+            f"{r['task_type']:<6}  {r['metrics']['exact_match']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s"
+        )
 
 
 @click.command()
@@ -271,7 +282,7 @@ def main(
     except ValueError as e:
         raise click.UsageError(str(e)) from None
 
-    print(json.dumps(result, indent=2))
+    _print_results_table(result)
 
 
 if __name__ == "__main__":
