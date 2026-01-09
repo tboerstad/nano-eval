@@ -71,12 +71,10 @@ def _parse_kwargs(s: str) -> dict[str, str | int | float]:
 def _check_endpoint(url: str, api_key: str = "") -> None:
     """Verify API endpoint is reachable. Raises ValueError with user-friendly message."""
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-    err = f"Connection failed: {url}\nIs the server running?"
     try:
-        if httpx.get(url, headers=headers, timeout=10).status_code == 404:
-            raise ValueError(err)
+        httpx.get(url, headers=headers, timeout=10)
     except httpx.ConnectError:
-        raise ValueError(err)
+        raise ValueError(f"Connection failed: {url}\nIs the server running?")
 
 
 def _list_models(base_url: str, api_key: str = "") -> list[str]:
