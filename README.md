@@ -1,5 +1,7 @@
 **nano-eval** is a minimal tool for measuring the quality of a text or vision model.
 
+## Quickstart
+
 ```bash
 uvx nano-eval -t gsm8k_cot_llama -t chartqa --base-url http://localhost:8000/v1 --max-samples 100
 
