@@ -99,6 +99,7 @@ def score(response: str, target: str) -> float:
 
 chartqa = Task(
     name="chartqa",
+    task_type="vision",
     samples=samples,
     score=score,
 )

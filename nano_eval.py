@@ -168,6 +168,7 @@ async def evaluate(
             _write_samples_jsonl(output_path, name, result["samples"])
         results[name] = TaskResult(
             task=result["task"],
+            task_type=result["task_type"],
             task_hash=result["task_hash"],
             metrics=result["metrics"],
             num_samples=result["num_samples"],
@@ -190,32 +191,14 @@ async def evaluate(
     return eval_result
 
 
-TASK_TYPES = {
-    "gsm8k_cot_llama": "text",
-    "chartqa": "vision",
-}
-
-
 def _print_results_table(result: EvalResult) -> None:
-    """Print a mini results table showing task type, accuracy, and sample count."""
-    rows = []
-    for name, task_result in result["results"].items():
-        task_type = TASK_TYPES.get(name, "text")
-        accuracy = task_result["metrics"]["exact_match"]
-        num_samples = task_result["num_samples"]
-        rows.append((task_type, f"{accuracy:.1%}", str(num_samples)))
-
-    # Column headers and widths
-    headers = ("Task", "Accuracy", "Samples")
-    widths = [max(len(h), max(len(r[i]) for r in rows)) for i, h in enumerate(headers)]
-
-    # Print table
-    header_row = "  ".join(h.ljust(w) for h, w in zip(headers, widths))
-    separator = "  ".join("-" * w for w in widths)
-    print(header_row)
-    print(separator)
-    for row in rows:
-        print("  ".join(val.ljust(w) for val, w in zip(row, widths)))
+    """Print a mini results table."""
+    print("Task    Accuracy  Samples")
+    print("------  --------  -------")
+    for r in result["results"].values():
+        print(
+            f"{r['task_type']:<6}  {r['metrics']['exact_match']:>7.1%}  {r['num_samples']:>7}"
+        )
 
 
 @click.command()
