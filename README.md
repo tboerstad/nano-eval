@@ -10,6 +10,8 @@ text      84.3%      100       45s
 vision    71.8%      100       38s
 ```
 
+> **Note:** This tool is designed for **comparing relative accuracy between inference frameworks** (e.g., vLLM vs SGLang vs MAX running the same model). It is not intended for absolute benchmark evaluations (there's only two datasets). Use it to verify that different serving backends produce consistent results or track results over time.
+
 ## Supported Tasks
 
 | Task | Type | Dataset | Description |
