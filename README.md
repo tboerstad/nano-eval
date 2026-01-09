@@ -51,10 +51,7 @@ Usage: nano-eval [OPTIONS]
 
   Example: nano-eval -t gsm8k_cot_llama --base-url http://localhost:8000/v1
 
-  Use --version to display the version and exit.
-
 Options:
-  --version                       Show the version and exit.
   -t, --tasks [gsm8k_cot_llama|chartqa]
                                   Task to evaluate (can be repeated)
                                   [required]
@@ -73,6 +70,7 @@ Options:
   --log-samples                   Save per-sample results as JSONL (requires
                                   --output-path)
   --seed INTEGER                  Seed for shuffling samples  [default: 42]
+  --version                       Show the version and exit.
   --help                          Show this message and exit.
 ```
 

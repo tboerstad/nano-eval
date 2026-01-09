@@ -179,7 +179,6 @@ async def evaluate(
 
 
 @click.command()
-@click.version_option(version=version("nano-eval"), prog_name="nano-eval")
 @click.option(
     "-t",
     "--tasks",
@@ -221,6 +220,7 @@ async def evaluate(
 @click.option(
     "--seed", default=42, show_default=True, help="Seed for shuffling samples"
 )
+@click.version_option(version=version("nano-eval"), prog_name="nano-eval")
 def main(
     tasks: tuple[str, ...],
     base_url: str,
@@ -237,8 +237,6 @@ def main(
     """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
 
     Example: nano-eval -t gsm8k_cot_llama --base-url http://localhost:8000/v1
-
-    Use --version to display the version and exit.
     """
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
