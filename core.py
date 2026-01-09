@@ -87,7 +87,7 @@ class APIConfig:
     url: str
     model: str
     api_key: str = ""
-    num_concurrent: int = 8
+    max_concurrent: int = 8
     timeout: int = 300
     max_retries: int = 3
     gen_kwargs: dict[str, Any] = field(default_factory=dict)
@@ -139,7 +139,7 @@ async def complete(
         headers["Authorization"] = f"Bearer {config.api_key}"
 
     async with httpx.AsyncClient(
-        limits=httpx.Limits(max_connections=config.num_concurrent),
+        limits=httpx.Limits(max_connections=config.max_concurrent),
         timeout=httpx.Timeout(config.timeout),
         headers=headers,
         trust_env=True,

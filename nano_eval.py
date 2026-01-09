@@ -100,7 +100,7 @@ async def evaluate(
     base_url: str,
     model: str | None = None,
     api_key: str = "",
-    num_concurrent: int = 8,
+    max_concurrent: int = 8,
     max_retries: int = 3,
     gen_kwargs: dict[str, Any] | None = None,
     max_samples: int | None = None,
@@ -116,13 +116,10 @@ async def evaluate(
         base_url: OpenAI-compatible API endpoint (e.g. http://localhost:8000/v1)
         model: Model name. Auto-detected if endpoint serves exactly one model.
         api_key: Bearer token for API authentication
-        num_concurrent: Parallel requests to send
-        max_retries: Retry attempts for failed requests
         gen_kwargs: API params like temperature, max_tokens, seed
         max_samples: Optional limit on samples per task
         output_path: If provided, write results.json to this directory
         log_samples: If True, also write samples_{task}.jsonl files
-        seed: Seed for shuffling samples
 
     Returns:
         EvalResult with per-task metrics and metadata
@@ -147,7 +144,7 @@ async def evaluate(
         url=f"{base_url}/chat/completions",
         model=model,
         api_key=api_key,
-        num_concurrent=num_concurrent,
+        max_concurrent=max_concurrent,
         max_retries=max_retries,
         gen_kwargs=gen_kwargs or {},
     )
@@ -213,15 +210,8 @@ def _print_results_table(result: EvalResult) -> None:
 @click.option("--base-url", required=True, help="OpenAI-compatible API endpoint")
 @click.option("--model", help="Model name; auto-detected if endpoint serves one model")
 @click.option("--api-key", default="", help="Bearer token for API authentication")
-@click.option(
-    "--num-concurrent", default=8, show_default=True, help="Parallel requests to send"
-)
-@click.option(
-    "--max-retries",
-    default=3,
-    show_default=True,
-    help="Retry attempts for failed requests",
-)
+@click.option("--max-concurrent", default=8, show_default=True)
+@click.option("--max-retries", default=3, show_default=True)
 @click.option(
     "--extra-request-params",
     "gen_kwargs",
@@ -240,16 +230,14 @@ def _print_results_table(result: EvalResult) -> None:
     is_flag=True,
     help="Save per-sample results as JSONL (requires --output-path)",
 )
-@click.option(
-    "--seed", default=42, show_default=True, help="Seed for shuffling samples"
-)
+@click.option("--seed", default=42, show_default=True, help="Controls sample order")
 @click.version_option(version=version("nano-eval"), prog_name="nano-eval")
 def main(
     tasks: tuple[str, ...],
     base_url: str,
     model: str | None,
     api_key: str,
-    num_concurrent: int,
+    max_concurrent: int,
     max_retries: int,
     gen_kwargs: str,
     max_samples: int | None,
@@ -270,7 +258,7 @@ def main(
                 base_url=base_url,
                 model=model,
                 api_key=api_key,
-                num_concurrent=num_concurrent,
+                max_concurrent=max_concurrent,
                 max_retries=max_retries,
                 gen_kwargs=_parse_kwargs(gen_kwargs),
                 max_samples=max_samples,
