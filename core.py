@@ -236,7 +236,10 @@ async def run_task(
     samples_hash = compute_samples_hash(samples)
     prompts = [s.prompt for s in samples]
 
-    logger.info(f"Evaluating: {task.name} ({len(samples)} samples)")
+    logger.info(
+        f"Starting {task.task_type} ({task.name}) eval: "
+        f"{len(samples)} samples, {config.max_concurrent} concurrent against {config.url}"
+    )
     t0 = time.perf_counter()
     desc = (
         "Running vision evals" if task.task_type == "vision" else "Running text evals"

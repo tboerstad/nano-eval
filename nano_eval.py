@@ -119,6 +119,7 @@ async def evaluate(
         models = _list_models(base_url, api_key)
         if len(models) == 1:
             model = models[0]
+            logger.info(f"Detected model: {model}")
         else:
             raise ValueError(
                 f"Auto-detecting model failed: expected 1 model, found {len(models)}. "
