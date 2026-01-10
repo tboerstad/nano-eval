@@ -18,7 +18,6 @@ import logging
 import math
 import os
 import re
-import sys
 import time
 from collections.abc import Callable
 from contextlib import contextmanager
@@ -276,10 +275,13 @@ async def run_task(
 
 @contextmanager
 def offline_if_cached(dataset: str, revision: str):
-    """Context manager: enable HF offline mode if dataset is cached (avoids HEAD requests)."""
-    hf_home = Path(
-        os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")
-    )
+    """Context manager: enable HF offline mode if dataset is cached (avoids HEAD requests).
+
+    Yields:
+        Tuple of (cached: bool, cache_path: Path) where cached indicates if dataset
+        is in cache and cache_path is the location of the cache directory.
+    """
+    hf_home = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
     cache = (
         hf_home
         / "hub"
@@ -293,7 +295,7 @@ def offline_if_cached(dataset: str, revision: str):
         old = ds_config.HF_HUB_OFFLINE
         ds_config.HF_HUB_OFFLINE = True
     try:
-        yield cached
+        yield cached, cache
     finally:
         if cached:
             ds_config.HF_HUB_OFFLINE = old
