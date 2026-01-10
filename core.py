@@ -26,7 +26,6 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, TypedDict
 
-import datasets.config as ds_config
 import httpx
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
@@ -292,10 +291,13 @@ def offline_if_cached(dataset: str, revision: str):
     cached = cache.is_dir() and any(cache.iterdir())
 
     if cached:
-        old = ds_config.HF_HUB_OFFLINE
-        ds_config.HF_HUB_OFFLINE = True
+        old = os.environ.get("HF_HUB_OFFLINE")
+        os.environ["HF_HUB_OFFLINE"] = "1"
     try:
         yield cached, cache
     finally:
         if cached:
-            ds_config.HF_HUB_OFFLINE = old
+            if old is None:
+                del os.environ["HF_HUB_OFFLINE"]
+            else:
+                os.environ["HF_HUB_OFFLINE"] = old
