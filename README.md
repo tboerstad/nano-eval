@@ -70,4 +70,30 @@ print(f"Accuracy: {text_result['metrics']['exact_match']:.1%}")
 
 This tool is inspired and borrows from: [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness). Please check it out
 
+## Example Output
 
+When using `--output-path`, a `results.json` file is generated:
+
+```json
+{
+  "config": {
+    "max_samples": 37,
+    "model": "deepseek-chat"
+  },
+  "framework_version": "0.2.1",
+  "results": {
+    "text": {
+      "elapsed_seconds": 28.45,
+      "metrics": {
+        "exact_match": 0.7837837837837838,
+        "exact_match_stderr": 0.06861056852129647
+      },
+      "num_samples": 37,
+      "samples_hash": "12a1e9404db6afe810290a474d69cfebdaffefd0b56e48ac80e1fec0f286d659",
+      "task": "gsm8k_cot_llama",
+      "task_type": "text"
+    }
+  },
+  "total_seconds": 28.45
+}
+```

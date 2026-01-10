@@ -48,13 +48,13 @@ class LoggedSample(TypedDict):
 
 
 class TaskResult(TypedDict):
-    task: str
-    task_type: str
-    task_hash: str
+    elapsed_seconds: float
     metrics: Metrics
     num_samples: int
-    elapsed_seconds: float
     samples: NotRequired[list[LoggedSample]]
+    samples_hash: str
+    task: str
+    task_type: str
 
 
 @dataclass
@@ -201,7 +201,7 @@ def _prompt_to_str(prompt: str | tuple[str, list] | list[dict[str, str]]) -> str
     return prompt[0] if isinstance(prompt, tuple) else prompt
 
 
-def compute_task_hash(samples: list[Sample]) -> str:
+def compute_samples_hash(samples: list[Sample]) -> str:
     """Compute SHA256 hash for all samples in a task (includes image data)."""
     hasher = hashlib.sha256()
     for s in samples:
@@ -232,7 +232,7 @@ async def run_task(
         TaskResult with metrics, sample count, elapsed time, and per-sample data
     """
     samples = task.samples(max_samples, seed)
-    task_hash = compute_task_hash(samples)
+    samples_hash = compute_samples_hash(samples)
     prompts = [s.prompt for s in samples]
 
     logger.info("Evaluating: %s (%d samples)", task.name, len(samples))
@@ -262,13 +262,13 @@ async def run_task(
         for i, (s, r, score) in enumerate(zip(samples, responses, scores))
     ]
     return TaskResult(
-        task=task.name,
-        task_type=task.task_type,
-        task_hash=task_hash,
+        elapsed_seconds=round(elapsed, 2),
         metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
         num_samples=n,
-        elapsed_seconds=round(elapsed, 2),
         samples=logged_samples,
+        samples_hash=samples_hash,
+        task=task.name,
+        task_type=task.task_type,
     )
 
 

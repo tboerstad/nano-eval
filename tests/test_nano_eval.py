@@ -114,7 +114,7 @@ class TestE2E:
 
         results = json.loads((tmp_path / "results.json").read_text())
         assert results["results"]["text"]["metrics"]["exact_match"] == 0.7
-        assert results["results"]["text"]["task_hash"] == GSM8K_HASH
+        assert results["results"]["text"]["samples_hash"] == GSM8K_HASH
 
         samples = [
             json.loads(line)
@@ -179,7 +179,7 @@ class TestE2E:
 
         results = json.loads((tmp_path / "results.json").read_text())
         assert results["results"]["vision"]["metrics"]["exact_match"] == 0.7
-        assert results["results"]["vision"]["task_hash"] == CHARTQA_HASH
+        assert results["results"]["vision"]["samples_hash"] == CHARTQA_HASH
 
         samples = [
             json.loads(line)

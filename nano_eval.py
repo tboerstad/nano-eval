@@ -7,7 +7,6 @@ CLI args → APIConfig → evaluate() → TASKS[type]() → JSON output
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 from importlib.metadata import version
@@ -29,11 +28,10 @@ class ConfigInfo(TypedDict):
 
 
 class EvalResult(TypedDict):
+    config: ConfigInfo
     framework_version: str
     results: dict[str, TaskResult]
-    eval_hash: str
     total_seconds: float
-    config: ConfigInfo
 
 
 def _parse_kwargs(s: str) -> dict[str, str | int | float]:
@@ -137,7 +135,6 @@ async def evaluate(
         output_path.mkdir(parents=True, exist_ok=True)
 
     results: dict[str, TaskResult] = {}
-    task_hashes: list[str] = []
     total_seconds = 0.0
 
     for type_name in types:
@@ -147,25 +144,23 @@ async def evaluate(
             )
         task = TASKS[type_name]
         result = await run_task(task, config, max_samples, seed)
-        task_hashes.append(result["task_hash"])
         if output_path and log_samples:
             _write_samples_jsonl(output_path, task.name, result["samples"])
         results[type_name] = TaskResult(
-            task=result["task"],
-            task_type=result["task_type"],
-            task_hash=result["task_hash"],
+            elapsed_seconds=result["elapsed_seconds"],
             metrics=result["metrics"],
             num_samples=result["num_samples"],
-            elapsed_seconds=result["elapsed_seconds"],
+            samples_hash=result["samples_hash"],
+            task=result["task"],
+            task_type=result["task_type"],
         )
         total_seconds += result["elapsed_seconds"]
 
     eval_result: EvalResult = {
+        "config": {"max_samples": max_samples, "model": config.model},
         "framework_version": version("nano-eval"),
         "results": results,
-        "eval_hash": hashlib.sha256("".join(sorted(task_hashes)).encode()).hexdigest(),
         "total_seconds": round(total_seconds, 2),
-        "config": {"model": config.model, "max_samples": max_samples},
     }
 
     if output_path:
