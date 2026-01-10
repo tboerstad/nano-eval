@@ -13,6 +13,8 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict
 
+import sys
+
 import click
 import httpx
 
@@ -235,20 +237,24 @@ def main(
     """
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
-    result = asyncio.run(
-        evaluate(
-            types=list(types),
-            base_url=base_url,
-            model=model,
-            api_key=api_key,
-            max_concurrent=max_concurrent,
-            gen_kwargs=_parse_kwargs(gen_kwargs),
-            max_samples=max_samples,
-            output_path=Path(output_path) if output_path else None,
-            log_samples=log_samples,
-            seed=seed,
+    try:
+        result = asyncio.run(
+            evaluate(
+                types=list(types),
+                base_url=base_url,
+                model=model,
+                api_key=api_key,
+                max_concurrent=max_concurrent,
+                gen_kwargs=_parse_kwargs(gen_kwargs),
+                max_samples=max_samples,
+                output_path=Path(output_path) if output_path else None,
+                log_samples=log_samples,
+                seed=seed,
+            )
         )
-    )
+    except RuntimeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
     _print_results_table(result)
 
