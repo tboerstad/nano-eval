@@ -300,4 +300,4 @@ def enable_offline_if_cached(dataset: str, revision: str, task_type: str) -> Non
                 f"Cache miss for {task_type} ({dataset}) dataset at: {cache}",
                 file=sys.stderr,
             )
-            print("Starting download from HuggingFace...", file=sys.stderr)
+            print("Starting download from HuggingFace", file=sys.stderr)
