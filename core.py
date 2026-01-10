@@ -272,7 +272,7 @@ async def run_task(
     )
 
 
-def enable_offline_if_cached(dataset: str, revision: str) -> None:
+def enable_offline_if_cached(dataset: str, revision: str, task_type: str) -> None:
     """Avoid HF Hub network calls when cache exists.
 
     Even with pinned revisions and cached data, HF still makes HEAD requests
@@ -291,9 +291,13 @@ def enable_offline_if_cached(dataset: str, revision: str) -> None:
         )
         if cache.is_dir() and any(cache.iterdir()):
             os.environ["HF_HUB_OFFLINE"] = "1"
-            print(f"Using cached {dataset} dataset.", file=sys.stderr)
-        else:
             print(
-                f"{dataset} not found in cache, downloading from Hugging Face...",
+                f"Cache hit for {task_type} ({dataset}) dataset at: {cache}",
                 file=sys.stderr,
             )
+        else:
+            print(
+                f"Cache miss for {task_type} ({dataset}) dataset at: {cache}",
+                file=sys.stderr,
+            )
+            print("Starting download from HuggingFace", file=sys.stderr)
