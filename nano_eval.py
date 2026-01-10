@@ -113,7 +113,7 @@ async def evaluate(
     from tasks import TASKS
 
     base_url = base_url.rstrip("/")
-    logger.info(f"Using URL: {base_url}")
+    logger.info(f"Using: {base_url}/chat/completions")
     _check_endpoint(f"{base_url}/chat/completions", api_key)
 
     if model is None:
