@@ -60,13 +60,8 @@ def _check_endpoint(url: str, api_key: str = "") -> None:
         # 404/405 mean server is running (GET not supported on chat/completions)
         if resp.status_code not in (404, 405):
             resp.raise_for_status()
-    except httpx.ConnectError:
+    except httpx.HTTPError:
         raise ValueError(f"No response from {url}\nIs the server running?")
-    except httpx.HTTPStatusError as e:
-        raise ValueError(
-            f"No response from {url} ({e.response.status_code}: {e.response.text})\n"
-            "Is the server running?"
-        )
 
 
 def _list_models(base_url: str, api_key: str = "") -> list[str]:
