@@ -24,6 +24,7 @@ dependencies = [
     "pillow>=9.0.0",
     "tqdm>=4.62.0",
     "typing-extensions>=4.0.0",
+    "multiprocess<=0.70.17", # see https://github.com/triton-inference-server/pytriton/issues/51
 ]
 
 [project.scripts]
