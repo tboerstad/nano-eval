@@ -224,7 +224,7 @@ def _print_results_table(result: EvalResult) -> None:
     "-v",
     "--verbose",
     count=True,
-    help="Increase verbosity (repeatable)",
+    help="Increase verbosity (up to -vv)",
 )
 @click.version_option(version=version("nano-eval"), prog_name="nano-eval")
 def main(
