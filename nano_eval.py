@@ -223,7 +223,7 @@ def _print_results_table(result: EvalResult) -> None:
     "-v",
     "--verbose",
     count=True,
-    help="Increase verbosity (-v for DEBUG, -vv includes httpx)",
+    help="Increase verbosity (-v includes httpx, -vv for DEBUG)",
 )
 @click.version_option(version=version("nano-eval"), prog_name="nano-eval")
 def main(
@@ -243,19 +243,13 @@ def main(
 
     Example: nano-eval -t text --base-url http://localhost:8000/v1
     """
-    if verbose >= 2:
-        log_level = logging.DEBUG
-        httpx_level = logging.DEBUG
-    elif verbose == 1:
-        log_level = logging.DEBUG
-        httpx_level = logging.WARNING
-    else:
-        log_level = logging.INFO
-        httpx_level = logging.WARNING
-
+    log_level = logging.DEBUG if verbose >= 2 else logging.INFO
     logging.basicConfig(level=log_level, format="%(levelname)s: %(message)s")
-    logging.getLogger("httpx").setLevel(httpx_level)
-    logging.getLogger("httpcore").setLevel(httpx_level)
+
+    # Suppress httpx/httpcore unless -v or higher
+    if verbose < 1:
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+        logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     result = asyncio.run(
         evaluate(
