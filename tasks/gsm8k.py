@@ -98,13 +98,11 @@ def _extract_gsm8k_answer(response: str) -> str:
 
 def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
     """Load GSM8K samples: (formatted_prompt, target_answer)."""
-    import datasets
-    from datasets import Dataset, DownloadMode
-
-    # TODO Upstream fix. HF datasets logging is too noisy
-    datasets.utils.logging.set_verbosity_error()
-
     with offline_if_cached("gsm8k", _GSM8K_REVISION) as (cached, cache_path):
+        import datasets
+        from datasets import Dataset, DownloadMode
+
+        datasets.utils.logging.set_verbosity_error()
         print(f"Cache {'hit' if cached else 'miss'} for text (gsm8k) at: {cache_path}")
         result: list[Sample] = []
         remaining = max_samples
