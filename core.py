@@ -238,7 +238,7 @@ async def run_task(
 
     logger.info(
         f"Starting {task.task_type} ({task.name}) eval: "
-        f"{len(samples)} samples, {config.max_concurrent} concurrent"
+        f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
     )
     logger.info(f"Against: {config.url}")
     t0 = time.perf_counter()
