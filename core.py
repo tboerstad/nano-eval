@@ -27,7 +27,9 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, TypedDict
 
+import datasets.config as ds_config
 import httpx
+from huggingface_hub import constants as hf_constants
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
 from typing_extensions import NotRequired
@@ -289,9 +291,6 @@ def offline_if_cached(dataset: str, revision: str):
     cached = cache.is_dir() and any(cache.iterdir())
 
     if cached:
-        import datasets.config as ds_config
-        from huggingface_hub import constants as hf_constants
-
         old_hf, old_ds = hf_constants.HF_HUB_OFFLINE, ds_config.HF_HUB_OFFLINE
         hf_constants.HF_HUB_OFFLINE = True
         ds_config.HF_HUB_OFFLINE = True
