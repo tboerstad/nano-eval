@@ -72,7 +72,7 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
         cache_path,
     ):
         logger.info(
-            f"Cache {'hit' if cached else 'miss'} for vision (ChartQA dataset) at: {cache_path}"
+            f"Cache {'hit' if cached else 'miss'} for vision dataset (ChartQA) at: {cache_path}"
         )
         result: list[Sample] = []
         remaining = max_samples
