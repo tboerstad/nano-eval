@@ -11,9 +11,6 @@ from __future__ import annotations
 
 import re
 
-import datasets
-from datasets import Dataset, DownloadMode
-
 from core import Sample, Task, _normalize, enable_offline_if_cached
 
 _GSM8K_REVISION = "cc7b047b6e5bb11b4f1af84efc572db110a51b3c"
@@ -102,6 +99,9 @@ def _extract_gsm8k_answer(response: str) -> str:
 def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
     """Load GSM8K samples: (formatted_prompt, target_answer)."""
     enable_offline_if_cached("gsm8k", _GSM8K_REVISION)
+    import datasets
+    from datasets import Dataset, DownloadMode
+
     result: list[Sample] = []
     remaining = max_samples
     for split in ["test", "train"]:
