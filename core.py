@@ -242,7 +242,7 @@ async def run_task(
     )
     t0 = time.perf_counter()
     desc = (
-        "Running vision evals" if task.task_type == "vision" else "Running text evals"
+        "Running vision eval" if task.task_type == "vision" else "Running text eval"
     )
     responses = await complete(prompts, config, desc)
     elapsed = time.perf_counter() - t0
