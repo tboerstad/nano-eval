@@ -246,8 +246,6 @@ def main(
     """
     log_level = logging.DEBUG if verbose >= 2 else logging.INFO
     logging.basicConfig(level=log_level)
-
-    # Suppress httpx unless -v or higher
     if verbose < 1:
         logging.getLogger("httpx").setLevel(logging.WARNING)
 
