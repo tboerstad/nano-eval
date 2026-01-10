@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Any, TypedDict
 import click
 import httpx
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from core import LoggedSample, TaskResult
 
@@ -117,6 +119,7 @@ async def evaluate(
         models = _list_models(base_url, api_key)
         if len(models) == 1:
             model = models[0]
+            logger.info(f"Auto-detected model: {model}")
         else:
             raise ValueError(
                 f"Auto-detecting model failed: expected 1 model, found {len(models)}. "
@@ -147,7 +150,7 @@ async def evaluate(
         if output_path and log_samples:
             samples_file = output_path / f"samples_{task.name}.jsonl"
             _write_samples_jsonl(samples_file, result["samples"])
-            print(f"`{type_name.title()}` sample log written to: {samples_file}")
+            logger.info(f"`{type_name.title()}` sample log written to: {samples_file}")
         results[type_name] = TaskResult(
             elapsed_seconds=result["elapsed_seconds"],
             metrics=result["metrics"],
@@ -169,7 +172,7 @@ async def evaluate(
         results_file = output_path / "results.json"
         with open(results_file, "w") as f:
             json.dump(eval_result, f, indent=2)
-        print(f"Results written to: {results_file}")
+        logger.info(f"Results written to: {results_file}")
 
     return eval_result
 
@@ -217,6 +220,12 @@ def _print_results_table(result: EvalResult) -> None:
     help="Save per-sample results as JSONL (requires --output-path)",
 )
 @click.option("--seed", default=42, show_default=True, help="Controls sample order")
+@click.option(
+    "-v",
+    "--verbose",
+    count=True,
+    help="Increase verbosity (up to -vv)",
+)
 @click.version_option(version=version("nano-eval"), prog_name="nano-eval")
 def main(
     types: tuple[str, ...],
@@ -229,12 +238,16 @@ def main(
     output_path: str | None,
     log_samples: bool,
     seed: int,
+    verbose: int,
 ) -> None:
     """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
 
     Example: nano-eval -t text --base-url http://localhost:8000/v1
     """
-    logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
+    log_level = logging.DEBUG if verbose >= 2 else logging.INFO
+    logging.basicConfig(level=log_level)
+    if verbose < 1:
+        logging.getLogger("httpx").setLevel(logging.WARNING)
 
     result = asyncio.run(
         evaluate(

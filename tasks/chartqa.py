@@ -9,9 +9,12 @@ Defines:
 
 from __future__ import annotations
 
+import logging
 import re
 
 from core import Sample, Task, offline_if_cached
+
+logger = logging.getLogger(__name__)
 
 _CHARTQA_REVISION = "b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5"
 
@@ -68,7 +71,7 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
         cached,
         cache_path,
     ):
-        print(
+        logger.info(
             f"Cache {'hit' if cached else 'miss'} for vision (ChartQA) at: {cache_path}"
         )
         result: list[Sample] = []
