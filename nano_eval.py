@@ -72,11 +72,8 @@ def _list_models(base_url: str, api_key: str = "") -> list[str]:
     return [model["id"] for model in resp.json().get("data", [])]
 
 
-def _write_samples_jsonl(
-    path: Path, task_name: str, samples: list[LoggedSample]
-) -> None:
+def _write_samples_jsonl(filepath: Path, samples: list[LoggedSample]) -> None:
     """Write per-sample results to JSONL file."""
-    filepath = path / f"samples_{task_name}.jsonl"
     with open(filepath, "w") as f:
         for sample in samples:
             f.write(json.dumps(sample, ensure_ascii=False) + "\n")
@@ -148,10 +145,9 @@ async def evaluate(
         task = TASKS[type_name]
         result = await run_task(task, config, max_samples, seed)
         if output_path and log_samples:
-            _write_samples_jsonl(output_path, task.name, result["samples"])
-            print(
-                f"`{type_name.title()}` sample log written to: {output_path}/samples_{task.name}.jsonl"
-            )
+            samples_file = output_path / f"samples_{task.name}.jsonl"
+            _write_samples_jsonl(samples_file, result["samples"])
+            print(f"`{type_name.title()}` sample log written to: {samples_file}")
         results[type_name] = TaskResult(
             elapsed_seconds=result["elapsed_seconds"],
             metrics=result["metrics"],
