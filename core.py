@@ -240,7 +240,6 @@ async def run_task(
         f"Starting {task.task_type} ({task.name}) eval: "
         f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
     )
-    logger.info(f"Against: {config.url}")
     t0 = time.perf_counter()
     desc = (
         "Running vision evals" if task.task_type == "vision" else "Running text evals"
@@ -253,7 +252,7 @@ async def run_task(
     accuracy = sum(scores) / n if n else 0.0
     stderr = math.sqrt(accuracy * (1 - accuracy) / (n - 1)) if n > 1 else 0.0
 
-    logger.info(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
+    logger.debug(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
 
     # Always collect per-sample data for optional JSONL export (negligible overhead)
     logged_samples: list[LoggedSample] = [

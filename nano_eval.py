@@ -113,6 +113,7 @@ async def evaluate(
     from tasks import TASKS
 
     base_url = base_url.rstrip("/")
+    logger.info(f"Using: {base_url}/chat/completions")
     _check_endpoint(f"{base_url}/chat/completions", api_key)
 
     if model is None:
@@ -245,7 +246,8 @@ def main(
     Example: nano-eval -t text --base-url http://localhost:8000/v1
     """
     log_level = logging.DEBUG if verbose >= 2 else logging.INFO
-    logging.basicConfig(level=log_level)
+    log_format = "%(message)s" if verbose < 1 else logging.BASIC_FORMAT
+    logging.basicConfig(level=log_level, format=log_format)
     if verbose < 1:
         logging.getLogger("httpx").setLevel(logging.WARNING)
 
