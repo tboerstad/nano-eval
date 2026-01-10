@@ -58,8 +58,6 @@ def _relaxed_match(response: str, target: str) -> float:
 
 def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
     """Load ChartQA samples: ((prompt, [image]), target)."""
-    import sys
-
     import datasets
     from datasets import Dataset, DownloadMode
 
@@ -67,9 +65,7 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
     datasets.utils.logging.set_verbosity_error()
 
     with offline_if_cached("HuggingFaceM4/ChartQA", _CHARTQA_REVISION) as cached:
-        print(
-            f"Cache {'hit' if cached else 'miss'} for vision (ChartQA)", file=sys.stderr
-        )
+        print(f"Cache {'hit' if cached else 'miss'} for vision (ChartQA)")
         result: list[Sample] = []
         remaining = max_samples
         for split in ["test", "val", "train"]:
