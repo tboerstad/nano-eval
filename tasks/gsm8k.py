@@ -102,6 +102,9 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
     import datasets
     from datasets import Dataset, DownloadMode
 
+    # TODO Upstream fix. HF datasets logging is too noisy
+    datasets.utils.logging.set_verbosity_error()
+
     result: list[Sample] = []
     remaining = max_samples
     for split in ["test", "train"]:
