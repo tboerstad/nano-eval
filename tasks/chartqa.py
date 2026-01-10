@@ -11,9 +11,6 @@ from __future__ import annotations
 
 import re
 
-import datasets
-from datasets import Dataset, DownloadMode
-
 from core import Sample, Task, enable_offline_if_cached
 
 _CHARTQA_REVISION = "b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5"
@@ -62,6 +59,9 @@ def _relaxed_match(response: str, target: str) -> float:
 def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
     """Load ChartQA samples: ((prompt, [image]), target)."""
     enable_offline_if_cached("HuggingFaceM4/ChartQA", _CHARTQA_REVISION)
+    import datasets
+    from datasets import Dataset, DownloadMode
+
     result: list[Sample] = []
     remaining = max_samples
     for split in ["test", "val", "train"]:
