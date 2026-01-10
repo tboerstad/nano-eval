@@ -150,7 +150,7 @@ async def evaluate(
         if output_path and log_samples:
             _write_samples_jsonl(output_path, task.name, result["samples"])
             print(
-                f"{type_name.title()} sample log written to: {output_path}/samples_{task.name}.jsonl"
+                f"`{type_name.title()}` sample log written to: {output_path}/samples_{task.name}.jsonl"
             )
         results[type_name] = TaskResult(
             elapsed_seconds=result["elapsed_seconds"],
