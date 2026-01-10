@@ -244,7 +244,7 @@ def main(
     Example: nano-eval -t text --base-url http://localhost:8000/v1
     """
     log_level = logging.DEBUG if verbose >= 2 else logging.INFO
-    logging.basicConfig(level=log_level, format="%(levelname)s: %(message)s")
+    logging.basicConfig(level=log_level)
 
     # Suppress httpx/httpcore unless -v or higher
     if verbose < 1:
