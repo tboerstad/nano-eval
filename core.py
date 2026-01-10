@@ -29,7 +29,6 @@ from typing import Any, TypedDict
 
 import datasets.config as ds_config
 import httpx
-from huggingface_hub import constants as hf_constants
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
 from typing_extensions import NotRequired
@@ -291,12 +290,10 @@ def offline_if_cached(dataset: str, revision: str):
     cached = cache.is_dir() and any(cache.iterdir())
 
     if cached:
-        old_hf, old_ds = hf_constants.HF_HUB_OFFLINE, ds_config.HF_HUB_OFFLINE
-        hf_constants.HF_HUB_OFFLINE = True
+        old = ds_config.HF_HUB_OFFLINE
         ds_config.HF_HUB_OFFLINE = True
     try:
         yield cached
     finally:
         if cached:
-            hf_constants.HF_HUB_OFFLINE = old_hf
-            ds_config.HF_HUB_OFFLINE = old_ds
+            ds_config.HF_HUB_OFFLINE = old
