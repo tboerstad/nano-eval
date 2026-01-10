@@ -75,6 +75,8 @@ class Task:
     task_type: str  # "text" or "vision"
     samples: Callable[[int | None, int | None], list[Sample]]  # (max_samples, seed)
     score: Callable[[str, str], float]  # (response, target) -> score
+    dataset: str = ""  # HF dataset name for cache checking
+    revision: str = ""  # HF revision for cache checking
 
 
 @dataclass
@@ -272,32 +274,16 @@ async def run_task(
     )
 
 
-def enable_offline_if_cached(dataset: str, revision: str, task_type: str) -> None:
-    """Avoid HF Hub network calls when cache exists.
-
-    Even with pinned revisions and cached data, HF still makes HEAD requests
-    to check for updates. This causes rate limiting and spurious failures.
-    """
-    if not os.environ.get("HF_HUB_OFFLINE"):
-        hf_home = Path(
-            os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")
-        )
-        cache = (
-            hf_home
-            / "hub"
-            / f"datasets--{dataset.replace('/', '--')}"
-            / "snapshots"
-            / revision
-        )
-        if cache.is_dir() and any(cache.iterdir()):
-            os.environ["HF_HUB_OFFLINE"] = "1"
-            print(
-                f"Cache hit for {task_type} ({dataset}) dataset at: {cache}",
-                file=sys.stderr,
-            )
-        else:
-            print(
-                f"Cache miss for {task_type} ({dataset}) dataset at: {cache}",
-                file=sys.stderr,
-            )
-            print("Starting download from HuggingFace", file=sys.stderr)
+def is_dataset_cached(dataset: str, revision: str) -> bool:
+    """Check if HuggingFace dataset is cached locally."""
+    hf_home = Path(
+        os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")
+    )
+    cache = (
+        hf_home
+        / "hub"
+        / f"datasets--{dataset.replace('/', '--')}"
+        / "snapshots"
+        / revision
+    )
+    return cache.is_dir() and any(cache.iterdir())

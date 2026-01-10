@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 
-from core import Sample, Task, _normalize, enable_offline_if_cached
+from core import Sample, Task, _normalize
 
 _GSM8K_REVISION = "cc7b047b6e5bb11b4f1af84efc572db110a51b3c"
 
@@ -98,7 +98,6 @@ def _extract_gsm8k_answer(response: str) -> str:
 
 def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
     """Load GSM8K samples: (formatted_prompt, target_answer)."""
-    enable_offline_if_cached("gsm8k", _GSM8K_REVISION, task_type="text")
     import datasets
     from datasets import Dataset, DownloadMode
 
@@ -145,4 +144,6 @@ gsm8k_cot_llama = Task(
     task_type="text",
     samples=samples,
     score=score,
+    dataset="gsm8k",
+    revision=_GSM8K_REVISION,
 )

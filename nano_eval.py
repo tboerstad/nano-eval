@@ -115,7 +115,12 @@ async def evaluate(
     Returns:
         EvalResult with per-task metrics and metadata
     """
-    from core import APIConfig, TaskResult, run_task
+    import sys
+
+    import datasets.config as ds_config
+    from huggingface_hub import constants as hf_constants
+
+    from core import APIConfig, TaskResult, is_dataset_cached, run_task
     from tasks import TASKS
 
     base_url = base_url.rstrip("/")
@@ -131,6 +136,29 @@ async def evaluate(
                 "Please specify model explicitly."
             )
 
+    # Validate task types and check cache status
+    tasks_to_run = []
+    for type_name in types:
+        if type_name not in TASKS:
+            raise ValueError(
+                f"Unknown type: {type_name}. Available: {list(TASKS.keys())}"
+            )
+        tasks_to_run.append(TASKS[type_name])
+
+    # Set HF offline mode if all datasets are cached
+    cache_status = {
+        task: is_dataset_cached(task.dataset, task.revision) for task in tasks_to_run
+    }
+    all_cached = all(cache_status.values())
+    hf_constants.HF_HUB_OFFLINE = all_cached
+    ds_config.HF_HUB_OFFLINE = all_cached
+
+    for task, cached in cache_status.items():
+        if cached:
+            print(f"Cache hit for {task.task_type} ({task.dataset})", file=sys.stderr)
+        else:
+            print(f"Cache miss for {task.task_type} ({task.dataset})", file=sys.stderr)
+
     config = APIConfig(
         url=f"{base_url}/chat/completions",
         model=model,
@@ -145,16 +173,11 @@ async def evaluate(
     results: dict[str, TaskResult] = {}
     total_seconds = 0.0
 
-    for type_name in types:
-        if type_name not in TASKS:
-            raise ValueError(
-                f"Unknown type: {type_name}. Available: {list(TASKS.keys())}"
-            )
-        task = TASKS[type_name]
+    for task in tasks_to_run:
         result = await run_task(task, config, max_samples, seed)
         if output_path and log_samples:
             _write_samples_jsonl(output_path, task.name, result["samples"])
-        results[type_name] = TaskResult(
+        results[task.task_type] = TaskResult(
             elapsed_seconds=result["elapsed_seconds"],
             metrics=result["metrics"],
             num_samples=result["num_samples"],
