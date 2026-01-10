@@ -167,8 +167,12 @@ async def evaluate(
     }
 
     if output_path:
-        with open(output_path / "results.json", "w") as f:
+        results_file = output_path / "results.json"
+        with open(results_file, "w") as f:
             json.dump(eval_result, f, indent=2)
+        print(f"Results written to: {results_file}")
+        if log_samples:
+            print(f"Sample logs written to: {output_path}/samples_*.jsonl")
 
     return eval_result
 
