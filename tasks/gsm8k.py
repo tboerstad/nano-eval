@@ -98,7 +98,7 @@ def _extract_gsm8k_answer(response: str) -> str:
 
 def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
     """Load GSM8K samples: (formatted_prompt, target_answer)."""
-    enable_offline_if_cached("gsm8k", _GSM8K_REVISION, task_type="text", name="gsm8k")
+    enable_offline_if_cached("gsm8k", _GSM8K_REVISION, task_type="text")
     import datasets
     from datasets import Dataset, DownloadMode
 

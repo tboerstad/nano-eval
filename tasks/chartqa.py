@@ -59,7 +59,7 @@ def _relaxed_match(response: str, target: str) -> float:
 def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
     """Load ChartQA samples: ((prompt, [image]), target)."""
     enable_offline_if_cached(
-        "HuggingFaceM4/ChartQA", _CHARTQA_REVISION, task_type="vision", name="chartqa"
+        "HuggingFaceM4/ChartQA", _CHARTQA_REVISION, task_type="vision"
     )
     import datasets
     from datasets import Dataset, DownloadMode
