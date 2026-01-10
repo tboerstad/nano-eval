@@ -9,9 +9,12 @@ Defines:
 
 from __future__ import annotations
 
+import logging
 import re
 
 from core import Sample, Task, _normalize, offline_if_cached
+
+logger = logging.getLogger(__name__)
 
 _GSM8K_REVISION = "cc7b047b6e5bb11b4f1af84efc572db110a51b3c"
 
@@ -105,7 +108,9 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
     datasets.utils.logging.set_verbosity_error()
 
     with offline_if_cached("gsm8k", _GSM8K_REVISION) as (cached, cache_path):
-        print(f"Cache {'hit' if cached else 'miss'} for text (gsm8k) at: {cache_path}")
+        logger.info(
+            f"Cache {'hit' if cached else 'miss'} for text (gsm8k) at: {cache_path}"
+        )
         result: list[Sample] = []
         remaining = max_samples
         for split in ["test", "train"]:

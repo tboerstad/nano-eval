@@ -236,7 +236,7 @@ async def run_task(
     samples_hash = compute_samples_hash(samples)
     prompts = [s.prompt for s in samples]
 
-    logger.info("Evaluating: %s (%d samples)", task.name, len(samples))
+    logger.info(f"Evaluating: {task.name} ({len(samples)} samples)")
     t0 = time.perf_counter()
     desc = (
         "Running vision evals" if task.task_type == "vision" else "Running text evals"
@@ -249,7 +249,7 @@ async def run_task(
     accuracy = sum(scores) / n if n else 0.0
     stderr = math.sqrt(accuracy * (1 - accuracy) / (n - 1)) if n > 1 else 0.0
 
-    logger.info("%s: accuracy=%.4f±%.4f (%.2fs)", task.name, accuracy, stderr, elapsed)
+    logger.info(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
 
     # Always collect per-sample data for optional JSONL export (negligible overhead)
     logged_samples: list[LoggedSample] = [
