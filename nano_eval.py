@@ -149,7 +149,9 @@ async def evaluate(
         result = await run_task(task, config, max_samples, seed)
         if output_path and log_samples:
             _write_samples_jsonl(output_path, task.name, result["samples"])
-            print(f"Sample log written to: {output_path}/samples_{task.name}.jsonl")
+            print(
+                f"{type_name.title()} sample log written to: {output_path}/samples_{task.name}.jsonl"
+            )
         results[type_name] = TaskResult(
             elapsed_seconds=result["elapsed_seconds"],
             metrics=result["metrics"],
