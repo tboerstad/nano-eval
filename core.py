@@ -21,11 +21,13 @@ import re
 import sys
 import time
 from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
 from typing import Any, TypedDict
 
+import datasets.config as ds_config
 import httpx
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
@@ -272,32 +274,26 @@ async def run_task(
     )
 
 
-def enable_offline_if_cached(dataset: str, revision: str, task_type: str) -> None:
-    """Avoid HF Hub network calls when cache exists.
+@contextmanager
+def offline_if_cached(dataset: str, revision: str):
+    """Context manager: enable HF offline mode if dataset is cached (avoids HEAD requests)."""
+    hf_home = Path(
+        os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")
+    )
+    cache = (
+        hf_home
+        / "hub"
+        / f"datasets--{dataset.replace('/', '--')}"
+        / "snapshots"
+        / revision
+    )
+    cached = cache.is_dir() and any(cache.iterdir())
 
-    Even with pinned revisions and cached data, HF still makes HEAD requests
-    to check for updates. This causes rate limiting and spurious failures.
-    """
-    if not os.environ.get("HF_HUB_OFFLINE"):
-        hf_home = Path(
-            os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")
-        )
-        cache = (
-            hf_home
-            / "hub"
-            / f"datasets--{dataset.replace('/', '--')}"
-            / "snapshots"
-            / revision
-        )
-        if cache.is_dir() and any(cache.iterdir()):
-            os.environ["HF_HUB_OFFLINE"] = "1"
-            print(
-                f"Cache hit for {task_type} ({dataset}) dataset at: {cache}",
-                file=sys.stderr,
-            )
-        else:
-            print(
-                f"Cache miss for {task_type} ({dataset}) dataset at: {cache}",
-                file=sys.stderr,
-            )
-            print("Starting download from HuggingFace", file=sys.stderr)
+    if cached:
+        old = ds_config.HF_HUB_OFFLINE
+        ds_config.HF_HUB_OFFLINE = True
+    try:
+        yield cached
+    finally:
+        if cached:
+            ds_config.HF_HUB_OFFLINE = old

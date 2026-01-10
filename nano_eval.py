@@ -56,8 +56,11 @@ def _check_endpoint(url: str, api_key: str = "") -> None:
     """Verify API endpoint is reachable. Raises ValueError with user-friendly message."""
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     try:
-        httpx.get(url, headers=headers, timeout=10)
-    except httpx.ConnectError:
+        resp = httpx.get(url, headers=headers, timeout=10)
+        # 404/405 mean server is running (GET not supported on chat/completions)
+        if resp.status_code not in (404, 405):
+            resp.raise_for_status()
+    except httpx.HTTPError:
         raise ValueError(f"No response from {url}\nIs the server running?")
 
 
