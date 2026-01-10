@@ -252,7 +252,9 @@ def main(
                 seed=seed,
             )
         )
-    except RuntimeError as e:
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
