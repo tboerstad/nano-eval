@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 
-from core import Sample, Task, _normalize
+from core import Sample, Task, _normalize, offline_if_cached
 
 _GSM8K_REVISION = "cc7b047b6e5bb11b4f1af84efc572db110a51b3c"
 
@@ -98,39 +98,43 @@ def _extract_gsm8k_answer(response: str) -> str:
 
 def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
     """Load GSM8K samples: (formatted_prompt, target_answer)."""
+    import sys
+
     import datasets
     from datasets import Dataset, DownloadMode
 
     # TODO Upstream fix. HF datasets logging is too noisy
     datasets.utils.logging.set_verbosity_error()
 
-    result: list[Sample] = []
-    remaining = max_samples
-    for split in ["test", "train"]:
-        if remaining is not None and remaining <= 0:
-            break
-        ds = datasets.load_dataset(
-            "gsm8k",
-            "main",
-            split=split,
-            revision=_GSM8K_REVISION,
-            download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
-        )
-        assert isinstance(ds, Dataset)
-        if seed is not None:
-            ds = ds.shuffle(seed=seed)
-        if remaining is not None:
-            ds = ds.select(range(min(remaining, len(ds))))
-        for doc in ds:
-            result.append(
-                Sample(
-                    prompt=_format_gsm8k_prompt(doc["question"]),
-                    target=_parse_target(doc["answer"]),
-                )
+    with offline_if_cached("gsm8k", _GSM8K_REVISION) as cached:
+        print(f"Cache {'hit' if cached else 'miss'} for text (gsm8k)", file=sys.stderr)
+        result: list[Sample] = []
+        remaining = max_samples
+        for split in ["test", "train"]:
+            if remaining is not None and remaining <= 0:
+                break
+            ds = datasets.load_dataset(
+                "gsm8k",
+                "main",
+                split=split,
+                revision=_GSM8K_REVISION,
+                download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
             )
-        if max_samples is not None:
-            remaining = max_samples - len(result)
-    return result
+            assert isinstance(ds, Dataset)
+            if seed is not None:
+                ds = ds.shuffle(seed=seed)
+            if remaining is not None:
+                ds = ds.select(range(min(remaining, len(ds))))
+            for doc in ds:
+                result.append(
+                    Sample(
+                        prompt=_format_gsm8k_prompt(doc["question"]),
+                        target=_parse_target(doc["answer"]),
+                    )
+                )
+            if max_samples is not None:
+                remaining = max_samples - len(result)
+        return result
 
 
 def score(response: str, target: str) -> float:
@@ -144,6 +148,4 @@ gsm8k_cot_llama = Task(
     task_type="text",
     samples=samples,
     score=score,
-    dataset="gsm8k",
-    revision=_GSM8K_REVISION,
 )

@@ -21,6 +21,7 @@ import re
 import sys
 import time
 from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
@@ -75,8 +76,6 @@ class Task:
     task_type: str  # "text" or "vision"
     samples: Callable[[int | None, int | None], list[Sample]]  # (max_samples, seed)
     score: Callable[[str, str], float]  # (response, target) -> score
-    dataset: str = ""  # HF dataset name for cache checking
-    revision: str = ""  # HF revision for cache checking
 
 
 @dataclass
@@ -274,8 +273,9 @@ async def run_task(
     )
 
 
-def is_dataset_cached(dataset: str, revision: str) -> bool:
-    """Check if HuggingFace dataset is cached locally."""
+@contextmanager
+def offline_if_cached(dataset: str, revision: str):
+    """Context manager: enable HF offline mode if dataset is cached (avoids HEAD requests)."""
     hf_home = Path(
         os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")
     )
@@ -286,4 +286,18 @@ def is_dataset_cached(dataset: str, revision: str) -> bool:
         / "snapshots"
         / revision
     )
-    return cache.is_dir() and any(cache.iterdir())
+    cached = cache.is_dir() and any(cache.iterdir())
+
+    if cached:
+        import datasets.config as ds_config
+        from huggingface_hub import constants as hf_constants
+
+        old_hf, old_ds = hf_constants.HF_HUB_OFFLINE, ds_config.HF_HUB_OFFLINE
+        hf_constants.HF_HUB_OFFLINE = True
+        ds_config.HF_HUB_OFFLINE = True
+    try:
+        yield cached
+    finally:
+        if cached:
+            hf_constants.HF_HUB_OFFLINE = old_hf
+            ds_config.HF_HUB_OFFLINE = old_ds
