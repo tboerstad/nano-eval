@@ -109,7 +109,7 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
 
     with offline_if_cached("gsm8k", _GSM8K_REVISION) as (cached, cache_path):
         logger.info(
-            f"Cache {'hit' if cached else 'miss'} for text (gsm8k_cot_llama) at: {cache_path}"
+            f"Cache {'hit' if cached else 'miss'} for text dataset (gsm8k_cot_llama) at: {cache_path}"
         )
         result: list[Sample] = []
         remaining = max_samples
