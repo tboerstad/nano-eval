@@ -154,6 +154,8 @@ async def complete(
                 await tqdm_asyncio.gather(*tasks, desc=progress_desc, leave=False)
             )
         except BaseException:
+            # Cancel pending tasks and await them to suppress
+            # "Task exception was never retrieved" warnings
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
