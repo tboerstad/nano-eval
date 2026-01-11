@@ -292,24 +292,19 @@ def offline_if_cached(dataset: str, revision: str):
     """Context manager: enable HF offline mode if dataset is cached (avoids HEAD requests).
 
     Yields:
-        Tuple of (cached: bool, cache_path: Path) where cached indicates if dataset
-        is in cache and cache_path is the location of the cache directory.
+        Tuple of (cached: bool, hf_home: Path) where cached indicates if dataset
+        is in cache and hf_home is the HuggingFace cache directory.
     """
-    hf_home = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
-    cache = (
-        hf_home
-        / "hub"
-        / f"datasets--{dataset.replace('/', '--')}"
-        / "snapshots"
-        / revision
-    )
-    cached = cache.is_dir() and any(cache.iterdir())
+    from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
+
+    hub_path = Path(HF_HUB_CACHE) / f"datasets--{dataset.replace('/', '--')}" / "snapshots" / revision
+    cached = hub_path.is_dir()
 
     if cached:
         old = ds_config.HF_HUB_OFFLINE
         ds_config.HF_HUB_OFFLINE = True
     try:
-        yield cached, cache
+        yield cached, Path(HF_HOME)
     finally:
         if cached:
             ds_config.HF_HUB_OFFLINE = old
