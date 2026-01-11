@@ -17,7 +17,6 @@ import base64
 import hashlib
 import logging
 import math
-import os
 import re
 import time
 from collections.abc import Callable
@@ -59,13 +58,29 @@ class TaskResult(TypedDict):
     task_type: str
 
 
+@dataclass(frozen=True)
+class TextPrompt:
+    """Text-only prompt (simple string or pre-formatted messages)."""
+
+    text: str | list[dict[str, str]]
+
+
+@dataclass(frozen=True)
+class VisionPrompt:
+    """Multimodal prompt with text and images."""
+
+    text: str
+    images: list[Any]
+
+
+Input = TextPrompt | VisionPrompt
+
+
 @dataclass
 class Sample:
     """A single evaluation sample: prompt + expected target."""
 
-    prompt: (
-        str | tuple[str, list[Any]] | list[dict[str, str]]
-    )  # text, (text, images), or messages
+    prompt: Input
     target: str
 
 
@@ -104,7 +119,7 @@ async def _request(
 
 
 async def complete(
-    prompts: list[str | tuple[str, list] | list[dict[str, str]]],
+    prompts: list[Input],
     config: APIConfig,
     progress_desc: str = "Running evals",
 ) -> list[str]:
@@ -112,10 +127,7 @@ async def complete(
     Run batch of chat completions.
 
     Args:
-        prompts: List of prompts. Each is either:
-            - str: text-only prompt
-            - tuple[str, list]: (text, images) for multimodal
-            - list[dict]: pre-built messages for multiturn
+        prompts: List of prompts (TextPrompt or VisionPrompt)
         config: API configuration (includes gen_kwargs for temperature, max_tokens, etc.)
 
     Returns:
@@ -133,13 +145,12 @@ async def complete(
     ) as client:
         tasks: list[asyncio.Task[str]] = []
         for prompt in prompts:
-            if isinstance(prompt, list):
-                messages = prompt
-            elif isinstance(prompt, tuple):
-                text, images = prompt
-                messages = _build_vision_message(text, images)
+            if isinstance(prompt, VisionPrompt):
+                messages = _build_vision_message(prompt.text, prompt.images)
+            elif isinstance(prompt.text, list):
+                messages = prompt.text
             else:
-                messages = [{"role": "user", "content": prompt}]
+                messages = [{"role": "user", "content": prompt.text}]
 
             payload: dict[str, Any] = {
                 "model": config.model,
@@ -208,11 +219,13 @@ def _normalize(text: str) -> str:
     return text.lower().strip()
 
 
-def _prompt_to_str(prompt: str | tuple[str, list] | list[dict[str, str]]) -> str:
-    """Extract text from prompt (handles multimodal tuples and message lists)."""
-    if isinstance(prompt, list):
-        return "\n".join(f"{m['role']}: {m['content']}" for m in prompt)
-    return prompt[0] if isinstance(prompt, tuple) else prompt
+def _prompt_to_str(prompt: Input) -> str:
+    """Extract text from prompt (handles TextPrompt and VisionPrompt)."""
+    if isinstance(prompt, VisionPrompt):
+        return prompt.text
+    if isinstance(prompt.text, list):
+        return "\n".join(f"{m['role']}: {m['content']}" for m in prompt.text)
+    return prompt.text
 
 
 def compute_samples_hash(samples: list[Sample]) -> str:
@@ -220,8 +233,8 @@ def compute_samples_hash(samples: list[Sample]) -> str:
     hasher = hashlib.sha256()
     for s in samples:
         hasher.update(_prompt_to_str(s.prompt).encode())
-        if isinstance(s.prompt, tuple):
-            for img in s.prompt[1]:
+        if isinstance(s.prompt, VisionPrompt):
+            for img in s.prompt.images:
                 hasher.update(_encode_image(img).encode())
         hasher.update(s.target.encode())
     return hasher.hexdigest()
@@ -297,7 +310,12 @@ def offline_if_cached(dataset: str, revision: str):
     """
     from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
 
-    hub_path = Path(HF_HUB_CACHE) / f"datasets--{dataset.replace('/', '--')}" / "snapshots" / revision
+    hub_path = (
+        Path(HF_HUB_CACHE)
+        / f"datasets--{dataset.replace('/', '--')}"
+        / "snapshots"
+        / revision
+    )
     cached = hub_path.is_dir()
 
     if cached:
