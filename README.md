@@ -56,7 +56,7 @@ Options:
 
 ```python
 import asyncio
-from nano_eval import evaluate, EvalResult
+from nano_eval import evaluate, EvalResult, TaskResult, Metrics
 
 result: EvalResult = asyncio.run(evaluate(
     types=["text"],
@@ -64,8 +64,9 @@ result: EvalResult = asyncio.run(evaluate(
     model="gpt-4",
     max_samples=100,
 ))
-text_result = result["results"]["text"]
-print(f"Accuracy: {text_result['metrics']['exact_match']:.1%}")
+text_result: TaskResult = result["results"]["text"]
+metrics: Metrics = text_result["metrics"]
+print(f"Accuracy: {metrics['exact_match']:.1%}")
 ```
 
 
