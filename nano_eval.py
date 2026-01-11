@@ -11,17 +11,16 @@ import json
 import logging
 from importlib.metadata import version
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import Any, TypedDict
 
 import click
 import httpx
 
+from core import LoggedSample, Metrics, TaskResult
+
 logger = logging.getLogger(__name__)
 
-if TYPE_CHECKING:
-    from core import LoggedSample, TaskResult
-
-__all__ = ["evaluate", "EvalResult"]
+__all__ = ["evaluate", "EvalResult", "ConfigInfo", "Metrics", "TaskResult"]
 
 
 class ConfigInfo(TypedDict):

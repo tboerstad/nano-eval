@@ -56,16 +56,16 @@ Options:
 
 ```python
 import asyncio
-from nano_eval import evaluate, EvalResult
+from nano_eval import evaluate, EvalResult, Metrics, TaskResult
 
 result: EvalResult = asyncio.run(evaluate(
     types=["text"],
     base_url="http://localhost:8000/v1",
-    model="gpt-4",
     max_samples=100,
 ))
-text_result = result["results"]["text"]
-print(f"Accuracy: {text_result['metrics']['exact_match']:.1%}")
+text_result: TaskResult = result["results"]["text"]
+metrics: Metrics = text_result["metrics"]
+print(f"Accuracy: {metrics['exact_match']:.1%}")
 ```
 
 
@@ -78,8 +78,7 @@ When using `--output-path`, a `results.json` file is generated:
 ```json
 {
   "config": {
-    "max_samples": 37,
-    "model": "deepseek-chat"
+    "max_samples": 37
   },
   "framework_version": "0.2.1",
   "results": {
