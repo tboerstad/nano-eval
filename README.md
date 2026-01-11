@@ -61,7 +61,7 @@ from nano_eval import evaluate, EvalResult
 result: EvalResult = asyncio.run(evaluate(
     types=["text"],
     base_url="http://localhost:8000/v1",
-    model="gpt-4",
+    model="google/gemma-3-4b-it",
     max_samples=100,
 ))
 text_result = result["results"]["text"]
@@ -79,7 +79,7 @@ When using `--output-path`, a `results.json` file is generated:
 {
   "config": {
     "max_samples": 37,
-    "model": "deepseek-chat"
+    "model": "google/gemma-3-4b-it"
   },
   "framework_version": "0.2.1",
   "results": {
