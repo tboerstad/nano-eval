@@ -113,14 +113,14 @@ async def evaluate(
     from tasks import TASKS
 
     base_url = base_url.rstrip("/")
-    logger.info(f"Using: {base_url}/chat/completions")
+    logger.info(f"Checking that endpoint is responding: {base_url}/chat/completions")
     _check_endpoint(f"{base_url}/chat/completions", api_key)
 
     if model is None:
         models = _list_models(base_url, api_key)
         if len(models) == 1:
             model = models[0]
-            logger.info(f"Auto-detected model: {model}")
+            logger.info(f"Successfully auto-detected model: {model}")
         else:
             raise ValueError(
                 f"Auto-detecting model failed: expected 1 model, found {len(models)}. "
