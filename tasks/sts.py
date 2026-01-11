@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 
-from core import Sample, Task, offline_if_cached
+from core import Sample, SentencePair, Task, offline_if_cached
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,10 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
                 similarity = doc["score"] / 5.0
                 result.append(
                     Sample(
-                        prompt=(doc["sentence1"], doc["sentence2"]),
+                        input=SentencePair(
+                            first=doc["sentence1"],
+                            second=doc["sentence2"],
+                        ),
                         target=str(similarity),
                     )
                 )

@@ -4,10 +4,10 @@ Core utilities for nano-eval.
 Responsibilities:
 - APIConfig: endpoint, model, concurrency, timeout
 - Sample/Task: minimal task abstraction (generator + scorer)
+- Input types: TextPrompt, VisionPrompt, SentencePair
 - complete(): async batch chat completions (OpenAI-compatible)
+- embed(): async batch embeddings
 - run_task(): evaluate a Task, return TaskResult
-- _normalize(): text normalization for comparison
-- _encode_image(): PIL→base64; rejects remote URLs
 """
 
 from __future__ import annotations
@@ -35,6 +35,38 @@ from typing_extensions import NotRequired, TypedDict
 logger = logging.getLogger(__name__)
 
 
+# --- Input types ---
+
+
+@dataclass(frozen=True)
+class TextPrompt:
+    """Simple text prompt for chat completion."""
+
+    text: str
+
+
+@dataclass(frozen=True)
+class VisionPrompt:
+    """Text prompt with images for vision models."""
+
+    text: str
+    images: list[Any]
+
+
+@dataclass(frozen=True)
+class SentencePair:
+    """Two sentences for embedding similarity comparison."""
+
+    first: str
+    second: str
+
+
+Input = TextPrompt | VisionPrompt | SentencePair | list[dict[str, str]]
+
+
+# --- Result types ---
+
+
 class Metrics(TypedDict):
     exact_match: float
     exact_match_stderr: float
@@ -43,7 +75,7 @@ class Metrics(TypedDict):
 class LoggedSample(TypedDict):
     sample_id: int
     target: str
-    prompt: str
+    input: str
     response: str
     exact_match: float
 
@@ -58,13 +90,14 @@ class TaskResult(TypedDict):
     task_type: str
 
 
+# --- Core abstractions ---
+
+
 @dataclass
 class Sample:
-    """A single evaluation sample: prompt + expected target."""
+    """A single evaluation sample: input + expected target."""
 
-    prompt: (
-        str | tuple[str, list[Any]] | tuple[str, str] | list[dict[str, str]]
-    )  # text, (text, images), (text1, text2) for embeddings, or messages
+    input: Input
     target: str
 
 
@@ -103,7 +136,7 @@ async def _request(
 
 
 async def complete(
-    prompts: list[str | tuple[str, list] | tuple[str, str] | list[dict[str, str]]],
+    inputs: list[Input],
     config: APIConfig,
     progress_desc: str = "Running evals",
 ) -> list[str]:
@@ -111,10 +144,7 @@ async def complete(
     Run batch of chat completions.
 
     Args:
-        prompts: List of prompts. Each is either:
-            - str: text-only prompt
-            - tuple[str, list]: (text, images) for multimodal
-            - list[dict]: pre-built messages for multiturn
+        inputs: List of inputs (TextPrompt, VisionPrompt, or messages list)
         config: API configuration (includes gen_kwargs for temperature, max_tokens, etc.)
 
     Returns:
@@ -131,19 +161,17 @@ async def complete(
         trust_env=True,
     ) as client:
         tasks: list[asyncio.Task[str]] = []
-        for prompt in prompts:
-            if isinstance(prompt, list):
-                messages = prompt
-            elif isinstance(prompt, tuple):
-                if isinstance(prompt[1], str):
-                    raise ValueError(
-                        "Embedding prompts should use embed(), not complete()"
-                    )
-                text = prompt[0]
-                images: list[Any] = prompt[1]
-                messages = _build_vision_message(text, images)
+        for inp in inputs:
+            if isinstance(inp, list):
+                messages = inp
+            elif isinstance(inp, VisionPrompt):
+                messages = _build_vision_message(inp.text, inp.images)
+            elif isinstance(inp, TextPrompt):
+                messages = [{"role": "user", "content": inp.text}]
+            elif isinstance(inp, SentencePair):
+                raise ValueError("SentencePair should use embed(), not complete()")
             else:
-                messages = [{"role": "user", "content": prompt}]
+                raise TypeError(f"Unknown input type: {type(inp)}")
 
             payload: dict[str, Any] = {
                 "model": config.model,
@@ -304,26 +332,25 @@ def _normalize(text: str) -> str:
     return text.lower().strip()
 
 
-def _prompt_to_str(
-    prompt: str | tuple[str, list] | tuple[str, str] | list[dict[str, str]],
-) -> str:
-    """Extract text from prompt (handles multimodal tuples, embedding pairs, and message lists)."""
-    if isinstance(prompt, list):
-        return "\n".join(f"{m['role']}: {m['content']}" for m in prompt)
-    if isinstance(prompt, tuple):
-        if isinstance(prompt[1], str):
-            return f"{prompt[0]} | {prompt[1]}"
-        return prompt[0]
-    return prompt
+def _input_to_str(inp: Input) -> str:
+    """Convert input to string for logging."""
+    if isinstance(inp, TextPrompt):
+        return inp.text
+    if isinstance(inp, VisionPrompt):
+        return inp.text
+    if isinstance(inp, SentencePair):
+        return f"{inp.first} | {inp.second}"
+    # Messages list
+    return "\n".join(f"{m['role']}: {m['content']}" for m in inp)
 
 
 def compute_samples_hash(samples: list[Sample]) -> str:
     """Compute SHA256 hash for all samples in a task (includes image data)."""
     hasher = hashlib.sha256()
     for s in samples:
-        hasher.update(_prompt_to_str(s.prompt).encode())
-        if isinstance(s.prompt, tuple) and isinstance(s.prompt[1], list):
-            for img in s.prompt[1]:
+        hasher.update(_input_to_str(s.input).encode())
+        if isinstance(s.input, VisionPrompt):
+            for img in s.input.images:
                 hasher.update(_encode_image(img).encode())
         hasher.update(s.target.encode())
     return hasher.hexdigest()
@@ -361,11 +388,11 @@ async def run_task(
         texts1 = []
         texts2 = []
         for s in samples:
-            if isinstance(s.prompt, tuple) and isinstance(s.prompt[1], str):
-                texts1.append(s.prompt[0])
-                texts2.append(s.prompt[1])
+            if isinstance(s.input, SentencePair):
+                texts1.append(s.input.first)
+                texts2.append(s.input.second)
             else:
-                raise ValueError("Embedding task requires tuple[str, str] prompts")
+                raise ValueError("Embedding task requires SentencePair inputs")
 
         all_texts = texts1 + texts2
         all_embeddings = await embed(all_texts, config, "Running embedding eval")
@@ -386,11 +413,11 @@ async def run_task(
             f"{task.name}: spearman={spearman:.4f} ({time.perf_counter() - t0:.2f}s)"
         )
     else:
-        prompts = [s.prompt for s in samples]
+        inputs = [s.input for s in samples]
         desc = (
             "Running vision eval" if task.task_type == "vision" else "Running text eval"
         )
-        responses = await complete(prompts, config, desc)
+        responses = await complete(inputs, config, desc)
         scores = [task.score(r, s.target) for r, s in zip(responses, samples)]
         metric_value = sum(scores) / n if n else 0.0
         stderr = (
@@ -406,7 +433,7 @@ async def run_task(
         LoggedSample(
             sample_id=i,
             target=s.target,
-            prompt=_prompt_to_str(s.prompt),
+            input=_input_to_str(s.input),
             response=r,
             exact_match=score,
         )

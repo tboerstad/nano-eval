@@ -132,7 +132,7 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
             for doc in ds:
                 result.append(
                     Sample(
-                        prompt=_format_gsm8k_prompt(doc["question"]),
+                        input=_format_gsm8k_prompt(doc["question"]),
                         target=_parse_target(doc["answer"]),
                     )
                 )

@@ -256,4 +256,4 @@ class TestE2E:
         ]
         assert len(samples) == 10
         assert samples[0]["sample_id"] == 0
-        assert " | " in samples[0]["prompt"]
+        assert " | " in samples[0]["input"]
