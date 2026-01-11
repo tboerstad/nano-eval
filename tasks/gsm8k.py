@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import re
 
-from core import Sample, Task, _normalize, offline_if_cached
+from core import Message, Sample, Task, _normalize, offline_if_cached
 
 logger = logging.getLogger(__name__)
 
@@ -65,14 +65,16 @@ _GSM8K_TEMPLATE = (
 _NUM_RE = re.compile(r"-?[$0-9.,]{2,}|-?[0-9]+")
 
 
-def _format_gsm8k_prompt(question: str) -> list[dict[str, str]]:
+def _format_gsm8k_prompt(question: str) -> list[Message]:
     """Format GSM8K prompt with few-shot examples as multiturn messages."""
-    messages: list[dict[str, str]] = []
+    messages: list[Message] = []
     for q, a in GSM8K_FEWSHOT:
-        messages.append({"role": "user", "content": _GSM8K_TEMPLATE.format(question=q)})
-        messages.append({"role": "assistant", "content": a})
+        messages.append(
+            Message(role="user", content=_GSM8K_TEMPLATE.format(question=q))
+        )
+        messages.append(Message(role="assistant", content=a))
     messages.append(
-        {"role": "user", "content": _GSM8K_TEMPLATE.format(question=question)}
+        Message(role="user", content=_GSM8K_TEMPLATE.format(question=question))
     )
     return messages
 
