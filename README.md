@@ -12,13 +12,13 @@ text      84.3%      100       45s
 vision    71.8%      100       38s
 ```
 
-> **Note:** This tool is for eyeballing the accuracy of a model. One example use case is comparing relative accuracy between inference frameworks (e.g., vLLM vs SGLang vs MAX running the same model).
+> **Note:** This tool is for eyeballing the accuracy of a model. One use case is comparing accuracy between inference frameworks (e.g., vLLM vs SGLang vs MAX running the same model).
 
 ## Supported Types
 
 | Type | Dataset | Description |
 |------|---------|-------------|
-| `text` | gsm8k | Grade school math with chain-of-thought (8-shot) |
+| `text` | gsm8k_cot_llama | Grade school math with chain-of-thought (8-shot) |
 | `vision` | HuggingFaceM4/ChartQA | Chart question answering with images |
 
 ## Usage
