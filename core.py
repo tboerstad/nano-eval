@@ -292,55 +292,22 @@ def _get_hf_home() -> Path:
     return Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
 
 
-def _is_hub_cached(hf_home: Path, dataset: str, revision: str) -> bool:
-    """Check if hub cache has actual data files (not just README)."""
-    from huggingface_hub import try_to_load_from_cache
-
-    # Try common parquet patterns
-    for pattern in [
-        "main/test-00000-of-00001.parquet",
-        "test-00000-of-00001.parquet",
-        "data/test-00000-of-00001.parquet",
-    ]:
-        result = try_to_load_from_cache(
-            repo_id=dataset,
-            filename=pattern,
-            repo_type="dataset",
-            revision=revision,
-        )
-        if result and isinstance(result, str):
-            return True
-
-    # Fallback: check for any parquet/arrow file in snapshot
-    hub_path = (
-        hf_home / "hub" / f"datasets--{dataset.replace('/', '--')}" / "snapshots" / revision
-    )
-    if hub_path.exists():
-        return any(hub_path.rglob("*.parquet")) or any(hub_path.rglob("*.arrow"))
-    return False
-
-
-def _is_datasets_cached(hf_home: Path, dataset: str) -> bool:
-    """Check if datasets cache has Arrow files."""
-    # Convert dataset name to datasets cache format (only dataset name is snake_cased)
+def _get_datasets_cache_dir(dataset: str) -> str:
+    """Convert dataset name to datasets cache directory format."""
     parts = dataset.split("/")
     if len(parts) == 2:
+        # Only dataset name is snake_cased, namespace stays as-is
         name = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", parts[1])
         name = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", name)
-        datasets_dir = f"{parts[0]}___{name.lower()}"
-    else:
-        datasets_dir = dataset.lower()
-
-    ds_path = hf_home / "datasets" / datasets_dir
-    return ds_path.exists() and any(ds_path.rglob("*.arrow"))
+        return f"{parts[0]}___{name.lower()}"
+    return dataset.lower()
 
 
 @contextmanager
 def offline_if_cached(dataset: str, revision: str):
     """Context manager: enable HF offline mode if dataset is cached (avoids HEAD requests).
 
-    Checks both huggingface_hub cache (raw files) and datasets cache (Arrow files).
-    Offline mode is enabled only if actual data files are found, not just metadata.
+    Checks that both huggingface_hub cache and datasets cache directories exist.
 
     Yields:
         Tuple of (cached: bool, hf_home: Path) where cached indicates if dataset
@@ -348,10 +315,14 @@ def offline_if_cached(dataset: str, revision: str):
     """
     hf_home = _get_hf_home()
 
-    # Check both caches - either having data is sufficient for offline mode
-    hub_cached = _is_hub_cached(hf_home, dataset, revision)
-    datasets_cached = _is_datasets_cached(hf_home, dataset)
-    cached = hub_cached or datasets_cached
+    # Hub cache: raw downloaded files
+    hub_path = (
+        hf_home / "hub" / f"datasets--{dataset.replace('/', '--')}" / "snapshots" / revision
+    )
+    # Datasets cache: processed Arrow files
+    datasets_path = hf_home / "datasets" / _get_datasets_cache_dir(dataset)
+
+    cached = hub_path.is_dir() and datasets_path.is_dir()
 
     if cached:
         old = ds_config.HF_HUB_OFFLINE
