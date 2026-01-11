@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import re
 
-from core import Sample, Task, offline_if_cached
+from core import Sample, Task, VisionPrompt, offline_if_cached
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +96,10 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
                 target = label[0] if isinstance(label, list) else str(label)
                 result.append(
                     Sample(
-                        prompt=(_format_chartqa_prompt(doc["query"]), [doc["image"]]),
+                        prompt=VisionPrompt(
+                            text=_format_chartqa_prompt(doc["query"]),
+                            images=[doc["image"]],
+                        ),
                         target=target,
                     )
                 )
