@@ -12,6 +12,7 @@ Responsibilities:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import logging
@@ -24,13 +25,13 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any
 
 import datasets.config as ds_config
 import httpx
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
-from typing_extensions import NotRequired
+from typing_extensions import NotRequired, TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +131,7 @@ async def complete(
         headers=headers,
         trust_env=True,
     ) as client:
-        tasks = []
+        tasks: list[asyncio.Task[str]] = []
         for prompt in prompts:
             if isinstance(prompt, list):
                 messages = prompt
@@ -146,9 +147,21 @@ async def complete(
                 **config.gen_kwargs,
             }
 
-            tasks.append(_request(client, config.url, payload))
+            tasks.append(asyncio.create_task(_request(client, config.url, payload)))
 
-        return list(await tqdm_asyncio.gather(*tasks, desc=progress_desc, leave=False))
+        try:
+            return list(
+                await tqdm_asyncio.gather(*tasks, desc=progress_desc, leave=False)
+            )
+        except BaseException:
+            # On any failure (including Ctrl-C), cancel all pending tasks and await
+            # them to properly "retrieve" their exceptions. Without this, Python logs
+            # "Task exception was never retrieved" for each concurrent task that failed.
+            # Using BaseException (not Exception) ensures cleanup runs on KeyboardInterrupt.
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
 
 
 def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
@@ -241,9 +254,7 @@ async def run_task(
         f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
     )
     t0 = time.perf_counter()
-    desc = (
-        "Running vision eval" if task.task_type == "vision" else "Running text eval"
-    )
+    desc = "Running vision eval" if task.task_type == "vision" else "Running text eval"
     responses = await complete(prompts, config, desc)
     elapsed = time.perf_counter() - t0
 
