@@ -123,7 +123,7 @@ async def evaluate(
             logger.info(f"Successfully auto-detected model: {model}")
         else:
             raise ValueError(
-                f"Auto-detecting model failed: expected 1 model, found {len(models)}. "
+                f"Auto-detecting model failed: found {len(models)} models: {', '.join(models)}. "
                 "Please specify model explicitly."
             )
 
