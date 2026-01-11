@@ -11,29 +11,29 @@ import json
 import logging
 from importlib.metadata import version
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import Any
 
 import click
 import httpx
 
+from schema import (
+    ConfigInfo,
+    EvalResult,
+    LoggedSample,
+    Metrics,
+    TaskResult,
+)
+
 logger = logging.getLogger(__name__)
 
-if TYPE_CHECKING:
-    from core import LoggedSample, TaskResult
-
-__all__ = ["evaluate", "EvalResult"]
-
-
-class ConfigInfo(TypedDict):
-    model: str
-    max_samples: int | None
-
-
-class EvalResult(TypedDict):
-    config: ConfigInfo
-    framework_version: str
-    results: dict[str, TaskResult]
-    total_seconds: float
+__all__ = [
+    "evaluate",
+    "EvalResult",
+    "ConfigInfo",
+    "TaskResult",
+    "Metrics",
+    "LoggedSample",
+]
 
 
 def _parse_kwargs(s: str) -> dict[str, str | int | float]:
@@ -109,7 +109,7 @@ async def evaluate(
     Returns:
         EvalResult with per-task metrics and metadata
     """
-    from core import APIConfig, TaskResult, run_task
+    from core import APIConfig, run_task
     from tasks import TASKS
 
     base_url = base_url.rstrip("/")
