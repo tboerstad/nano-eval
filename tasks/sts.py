@@ -2,8 +2,8 @@
 STS-B evaluation - semantic textual similarity benchmark.
 
 Defines:
-- samples(): generator yielding ((sent1, sent2), target_similarity) pairs
-- score(): cosine similarity between embeddings (placeholder, actual scoring in run_task)
+- samples(): load sentence pairs with similarity labels
+- score(): placeholder (embedding scoring uses Spearman correlation in run_task)
 - sts_b: Task instance for registration
 """
 
@@ -63,7 +63,7 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
 
 
 def score(response: float, target: str) -> float:
-    """Return the predicted similarity (actual scoring happens in run_task via Spearman)."""
+    """Placeholder score function (embedding tasks use Spearman correlation)."""
     return float(response) if isinstance(response, (int, float)) else 0.0
 
 
