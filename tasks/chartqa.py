@@ -69,10 +69,11 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
 
     with offline_if_cached("HuggingFaceM4/ChartQA", _CHARTQA_REVISION) as (
         cached,
-        cache_path,
+        hf_home,
     ):
         logger.info(
-            f"Cache {'hit' if cached else 'miss'} for vision dataset (ChartQA) at: {cache_path}"
+            f"Cache {'hit' if cached else 'miss'} for vision dataset (ChartQA), "
+            f"HF_HOME={hf_home}"
         )
         result: list[Sample] = []
         remaining = max_samples

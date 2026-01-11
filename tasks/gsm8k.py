@@ -107,9 +107,10 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
     # TODO Upstream fix. HF datasets logging is too noisy
     datasets.utils.logging.set_verbosity_error()
 
-    with offline_if_cached("gsm8k", _GSM8K_REVISION) as (cached, cache_path):
+    with offline_if_cached("gsm8k", _GSM8K_REVISION) as (cached, hf_home):
         logger.info(
-            f"Cache {'hit' if cached else 'miss'} for text dataset (gsm8k_cot_llama) at: {cache_path}"
+            f"Cache {'hit' if cached else 'miss'} for text dataset (gsm8k_cot_llama), "
+            f"HF_HOME={hf_home}"
         )
         result: list[Sample] = []
         remaining = max_samples

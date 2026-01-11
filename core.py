@@ -287,29 +287,34 @@ async def run_task(
     )
 
 
+def _get_hf_home() -> Path:
+    """Get the HuggingFace home directory (parent of all caches)."""
+    return Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
+
+
 @contextmanager
 def offline_if_cached(dataset: str, revision: str):
     """Context manager: enable HF offline mode if dataset is cached (avoids HEAD requests).
 
     Yields:
-        Tuple of (cached: bool, cache_path: Path) where cached indicates if dataset
-        is in cache and cache_path is the location of the cache directory.
+        Tuple of (cached: bool, hf_home: Path) where cached indicates if dataset
+        is in cache and hf_home is the HuggingFace cache directory.
     """
-    hf_home = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
-    cache = (
+    hf_home = _get_hf_home()
+    hub_cache = (
         hf_home
         / "hub"
         / f"datasets--{dataset.replace('/', '--')}"
         / "snapshots"
         / revision
     )
-    cached = cache.is_dir() and any(cache.iterdir())
+    cached = hub_cache.is_dir() and any(hub_cache.iterdir())
 
     if cached:
         old = ds_config.HF_HUB_OFFLINE
         ds_config.HF_HUB_OFFLINE = True
     try:
-        yield cached, cache
+        yield cached, hf_home
     finally:
         if cached:
             ds_config.HF_HUB_OFFLINE = old
