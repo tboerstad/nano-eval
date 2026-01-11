@@ -154,8 +154,10 @@ async def complete(
                 await tqdm_asyncio.gather(*tasks, desc=progress_desc, leave=False)
             )
         except BaseException:
-            # Cancel pending tasks and await them to suppress
-            # "Task exception was never retrieved" warnings
+            # On any failure (including Ctrl-C), cancel all pending tasks and await
+            # them to properly "retrieve" their exceptions. Without this, Python logs
+            # "Task exception was never retrieved" for each concurrent task that failed.
+            # Using BaseException (not Exception) ensures cleanup runs on KeyboardInterrupt.
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
