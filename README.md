@@ -1,25 +1,27 @@
-**nano-eval** is a minimal tool for measuring the quality of a text or vision model.
+**nano-eval** is a minimal tool for measuring the quality of a text, vision, or embedding model.
 
 ## Quickstart
 
 ```bash
-uvx nano-eval -t text -t vision --base-url http://localhost:8000/v1 --max-samples 100
+uvx nano-eval -t text -t vision -t embedding --base-url http://localhost:8000/v1 --max-samples 100
 
 # prints:
-Task    Accuracy  Samples  Duration
-------  --------  -------  --------
-text      84.3%      100       45s
-vision    71.8%      100       38s
+Task       Metric    Samples  Duration
+---------  --------  -------  --------
+text         84.3%      100       45s
+vision       71.8%      100       38s
+embedding    0.847      100       12s
 ```
 
 > **Note:** This tool is for eyeballing the accuracy of a model. One example use case is comparing relative accuracy between inference frameworks (e.g., vLLM vs SGLang vs MAX running the same model).
 
 ## Supported Types
 
-| Type | Dataset | Description |
-|------|---------|-------------|
-| `text` | gsm8k | Grade school math with chain-of-thought (8-shot) |
-| `vision` | HuggingFaceM4/ChartQA | Chart question answering with images |
+| Type | Dataset | Description | Metric |
+|------|---------|-------------|--------|
+| `text` | gsm8k | Grade school math with chain-of-thought (8-shot) | Accuracy |
+| `vision` | HuggingFaceM4/ChartQA | Chart question answering with images | Accuracy |
+| `embedding` | sentence-transformers/stsb | Semantic textual similarity benchmark | Spearman |
 
 ## Usage
 
@@ -32,7 +34,8 @@ Usage: nano-eval [OPTIONS]
   Example: nano-eval -t text --base-url http://localhost:8000/v1
 
 Options:
-  -t, --type [text|vision]        Type to evaluate (can be repeated)
+  -t, --type [text|vision|embedding]
+                                  Type to evaluate (can be repeated)
                                   [required]
   --base-url TEXT                 OpenAI-compatible API endpoint  [required]
   --model TEXT                    Model name; auto-detected if endpoint serves

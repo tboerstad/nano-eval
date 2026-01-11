@@ -97,7 +97,7 @@ async def evaluate(
     Run evaluations for specified types.
 
     Args:
-        types: List of types to evaluate ("text" or "vision")
+        types: List of types to evaluate ("text", "vision", or "embedding")
         base_url: OpenAI-compatible API endpoint (e.g. http://localhost:8000/v1)
         model: Model name. Auto-detected if endpoint serves exactly one model.
         api_key: Bearer token for API authentication
@@ -113,8 +113,17 @@ async def evaluate(
     from tasks import TASKS
 
     base_url = base_url.rstrip("/")
-    logger.info(f"Checking that endpoint is responding: {base_url}/chat/completions")
-    _check_endpoint(f"{base_url}/chat/completions", api_key)
+    has_chat_types = any(t in ("text", "vision") for t in types)
+    has_embedding_types = "embedding" in types
+
+    if has_chat_types:
+        logger.info(
+            f"Checking that endpoint is responding: {base_url}/chat/completions"
+        )
+        _check_endpoint(f"{base_url}/chat/completions", api_key)
+    if has_embedding_types:
+        logger.info(f"Checking that endpoint is responding: {base_url}/embeddings")
+        _check_endpoint(f"{base_url}/embeddings", api_key)
 
     if model is None:
         models = _list_models(base_url, api_key)
@@ -180,11 +189,17 @@ async def evaluate(
 
 def _print_results_table(result: EvalResult) -> None:
     """Print a mini results table."""
-    print("\nTask    Accuracy  Samples  Duration")
-    print("------  --------  -------  --------")
+    print("\nTask       Metric    Samples  Duration")
+    print("---------  --------  -------  --------")
     for r in result["results"].values():
+        task_type = r["task_type"]
+        metric = r["metrics"]["exact_match"]
+        if task_type == "embedding":
+            metric_str = f"{metric:>7.3f}"
+        else:
+            metric_str = f"{metric:>7.1%}"
         print(
-            f"{r['task_type']:<6}  {r['metrics']['exact_match']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s"
+            f"{task_type:<9}  {metric_str}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s"
         )
 
 
@@ -193,7 +208,7 @@ def _print_results_table(result: EvalResult) -> None:
     "-t",
     "--type",
     "types",
-    type=click.Choice(["text", "vision"]),
+    type=click.Choice(["text", "vision", "embedding"]),
     required=True,
     multiple=True,
     help="Type to evaluate (can be repeated)",

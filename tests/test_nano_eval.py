@@ -17,6 +17,7 @@ from core import Task
 from nano_eval import main
 from tasks.chartqa import samples as load_chartqa_samples, score as chartqa_score
 from tasks.gsm8k import samples as load_gsm8k_samples, score as gsm8k_score
+from tasks.sts import samples as load_sts_samples, score as sts_score
 
 # GSM8K: 10 mock responses keyed by prompt hash (7 correct, 3 wrong = 70% accuracy)
 # Hashes are for the last user message (the question) in multiturn fewshot format
@@ -195,3 +196,64 @@ class TestE2E:
         assert samples[0]["exact_match"] == 1.0
         assert samples[4]["target"] == "23"
         assert samples[4]["exact_match"] == 0.0
+
+    def test_sts_embedding_evaluation(self, tmp_path):
+        """STS-B embedding evaluation with real dataset, mocked API."""
+        real_samples = load_sts_samples(10)
+
+        def api_response(request):
+            body = json.loads(request.content)
+            text = body["input"][0]
+            embedding = [hash(text) % 1000 / 1000.0 for _ in range(8)]
+            return Response(
+                200,
+                json={"data": [{"embedding": embedding, "index": 0}]},
+            )
+
+        task = Task(
+            name="sts_b",
+            task_type="embedding",
+            samples=lambda n, seed: real_samples,
+            score=sts_score,
+        )
+
+        with respx.mock:
+            respx.get("http://test.com/v1/embeddings").mock(return_value=Response(200))
+            respx.get("http://test.com/v1/models").mock(
+                return_value=Response(
+                    200, json={"object": "list", "data": [{"id": "test"}]}
+                )
+            )
+            respx.post("http://test.com/v1/embeddings").mock(side_effect=api_response)
+
+            with patch.dict("tasks.TASKS", {"embedding": task}):
+                runner = CliRunner()
+                result = runner.invoke(
+                    main,
+                    [
+                        "--type=embedding",
+                        "--base-url=http://test.com/v1",
+                        "--max-samples=10",
+                        "--output-path",
+                        str(tmp_path),
+                        "--log-samples",
+                    ],
+                )
+                assert result.exit_code == 0, result.output
+
+        results = json.loads((tmp_path / "results.json").read_text())
+        assert "embedding" in results["results"]
+        assert results["results"]["embedding"]["task_type"] == "embedding"
+        assert results["results"]["embedding"]["num_samples"] == 10
+        assert -1.0 <= results["results"]["embedding"]["metrics"]["exact_match"] <= 1.0
+
+        samples = [
+            json.loads(line)
+            for line in (tmp_path / "samples_sts_b.jsonl")
+            .read_text()
+            .strip()
+            .split("\n")
+        ]
+        assert len(samples) == 10
+        assert samples[0]["sample_id"] == 0
+        assert " | " in samples[0]["prompt"]

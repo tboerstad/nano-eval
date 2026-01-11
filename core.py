@@ -17,7 +17,6 @@ import base64
 import hashlib
 import logging
 import math
-import os
 import re
 import time
 from collections.abc import Callable
@@ -64,8 +63,8 @@ class Sample:
     """A single evaluation sample: prompt + expected target."""
 
     prompt: (
-        str | tuple[str, list[Any]] | list[dict[str, str]]
-    )  # text, (text, images), or messages
+        str | tuple[str, list[Any]] | tuple[str, str] | list[dict[str, str]]
+    )  # text, (text, images), (text1, text2) for embeddings, or messages
     target: str
 
 
@@ -74,9 +73,9 @@ class Task:
     """Minimal task definition: a loader of samples + a scoring function."""
 
     name: str
-    task_type: str  # "text" or "vision"
+    task_type: str  # "text", "vision", or "embedding"
     samples: Callable[[int | None, int | None], list[Sample]]  # (max_samples, seed)
-    score: Callable[[str, str], float]  # (response, target) -> score
+    score: Callable[[Any, str], float]  # (response, target) -> score
 
 
 @dataclass
@@ -104,7 +103,7 @@ async def _request(
 
 
 async def complete(
-    prompts: list[str | tuple[str, list] | list[dict[str, str]]],
+    prompts: list[str | tuple[str, list] | tuple[str, str] | list[dict[str, str]]],
     config: APIConfig,
     progress_desc: str = "Running evals",
 ) -> list[str]:
@@ -136,7 +135,12 @@ async def complete(
             if isinstance(prompt, list):
                 messages = prompt
             elif isinstance(prompt, tuple):
-                text, images = prompt
+                if isinstance(prompt[1], str):
+                    raise ValueError(
+                        "Embedding prompts should use embed(), not complete()"
+                    )
+                text = prompt[0]
+                images: list[Any] = prompt[1]
                 messages = _build_vision_message(text, images)
             else:
                 messages = [{"role": "user", "content": prompt}]
@@ -162,6 +166,98 @@ async def complete(
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             raise
+
+
+async def _embed_request(
+    client: httpx.AsyncClient,
+    url: str,
+    payload: dict[str, Any],
+) -> list[list[float]]:
+    """Single embedding request. Returns list of embedding vectors."""
+    resp = await client.post(url, json=payload)
+    if resp.is_success:
+        data = resp.json()["data"]
+        return [item["embedding"] for item in sorted(data, key=lambda x: x["index"])]
+    raise RuntimeError(f"Embedding request failed: {resp.text}")
+
+
+async def embed(
+    texts: list[str],
+    config: APIConfig,
+    progress_desc: str = "Running embeddings",
+) -> list[list[float]]:
+    """
+    Run batch of embedding requests.
+
+    Args:
+        texts: List of texts to embed
+        config: API configuration
+
+    Returns:
+        List of embedding vectors (one per input text)
+    """
+    headers = {"Content-Type": "application/json"}
+    if config.api_key:
+        headers["Authorization"] = f"Bearer {config.api_key}"
+
+    base_url = config.url.replace("/chat/completions", "")
+    embed_url = f"{base_url}/embeddings"
+
+    async with httpx.AsyncClient(
+        limits=httpx.Limits(max_connections=config.max_concurrent),
+        timeout=httpx.Timeout(config.timeout),
+        headers=headers,
+        trust_env=True,
+    ) as client:
+        tasks: list[asyncio.Task[list[list[float]]]] = []
+        for text in texts:
+            payload: dict[str, Any] = {
+                "model": config.model,
+                "input": [text],
+            }
+            tasks.append(
+                asyncio.create_task(_embed_request(client, embed_url, payload))
+            )
+
+        try:
+            results = list(
+                await tqdm_asyncio.gather(*tasks, desc=progress_desc, leave=False)
+            )
+            return [r[0] for r in results]
+        except BaseException:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
+
+
+def _cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
+    """Compute cosine similarity between two vectors."""
+    dot = sum(a * b for a, b in zip(vec1, vec2))
+    norm1 = math.sqrt(sum(a * a for a in vec1))
+    norm2 = math.sqrt(sum(b * b for b in vec2))
+    if norm1 == 0 or norm2 == 0:
+        return 0.0
+    return dot / (norm1 * norm2)
+
+
+def _spearman_correlation(x: list[float], y: list[float]) -> float:
+    """Compute Spearman rank correlation coefficient."""
+    n = len(x)
+    if n < 2:
+        return 0.0
+
+    def rank(data: list[float]) -> list[float]:
+        sorted_indices = sorted(range(n), key=lambda i: data[i])
+        ranks = [0.0] * n
+        for rank_val, idx in enumerate(sorted_indices):
+            ranks[idx] = float(rank_val + 1)
+        return ranks
+
+    rank_x = rank(x)
+    rank_y = rank(y)
+    d_squared = sum((rx - ry) ** 2 for rx, ry in zip(rank_x, rank_y))
+    return 1 - (6 * d_squared) / (n * (n**2 - 1))
 
 
 def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
@@ -208,11 +304,17 @@ def _normalize(text: str) -> str:
     return text.lower().strip()
 
 
-def _prompt_to_str(prompt: str | tuple[str, list] | list[dict[str, str]]) -> str:
-    """Extract text from prompt (handles multimodal tuples and message lists)."""
+def _prompt_to_str(
+    prompt: str | tuple[str, list] | tuple[str, str] | list[dict[str, str]],
+) -> str:
+    """Extract text from prompt (handles multimodal tuples, embedding pairs, and message lists)."""
     if isinstance(prompt, list):
         return "\n".join(f"{m['role']}: {m['content']}" for m in prompt)
-    return prompt[0] if isinstance(prompt, tuple) else prompt
+    if isinstance(prompt, tuple):
+        if isinstance(prompt[1], str):
+            return f"{prompt[0]} | {prompt[1]}"
+        return prompt[0]
+    return prompt
 
 
 def compute_samples_hash(samples: list[Sample]) -> str:
@@ -220,7 +322,7 @@ def compute_samples_hash(samples: list[Sample]) -> str:
     hasher = hashlib.sha256()
     for s in samples:
         hasher.update(_prompt_to_str(s.prompt).encode())
-        if isinstance(s.prompt, tuple):
+        if isinstance(s.prompt, tuple) and isinstance(s.prompt[1], list):
             for img in s.prompt[1]:
                 hasher.update(_encode_image(img).encode())
         hasher.update(s.target.encode())
@@ -247,25 +349,59 @@ async def run_task(
     """
     samples = task.samples(max_samples, seed)
     samples_hash = compute_samples_hash(samples)
-    prompts = [s.prompt for s in samples]
+    n = len(samples)
 
     logger.info(
         f"Starting {task.task_type} ({task.name}) eval: "
-        f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
+        f"{n} samples, up to {config.max_concurrent} concurrent requests"
     )
     t0 = time.perf_counter()
-    desc = "Running vision eval" if task.task_type == "vision" else "Running text eval"
-    responses = await complete(prompts, config, desc)
+
+    if task.task_type == "embedding":
+        texts1 = []
+        texts2 = []
+        for s in samples:
+            if isinstance(s.prompt, tuple) and isinstance(s.prompt[1], str):
+                texts1.append(s.prompt[0])
+                texts2.append(s.prompt[1])
+            else:
+                raise ValueError("Embedding task requires tuple[str, str] prompts")
+
+        all_texts = texts1 + texts2
+        all_embeddings = await embed(all_texts, config, "Running embedding eval")
+        embeddings1 = all_embeddings[:n]
+        embeddings2 = all_embeddings[n:]
+
+        pred_sims = [
+            _cosine_similarity(e1, e2) for e1, e2 in zip(embeddings1, embeddings2)
+        ]
+        gold_sims = [float(s.target) for s in samples]
+        scores = pred_sims
+        responses = [f"{sim:.4f}" for sim in pred_sims]
+
+        spearman = _spearman_correlation(pred_sims, gold_sims)
+        metric_value = spearman
+        stderr = 0.0
+        logger.debug(
+            f"{task.name}: spearman={spearman:.4f} ({time.perf_counter() - t0:.2f}s)"
+        )
+    else:
+        prompts = [s.prompt for s in samples]
+        desc = (
+            "Running vision eval" if task.task_type == "vision" else "Running text eval"
+        )
+        responses = await complete(prompts, config, desc)
+        scores = [task.score(r, s.target) for r, s in zip(responses, samples)]
+        metric_value = sum(scores) / n if n else 0.0
+        stderr = (
+            math.sqrt(metric_value * (1 - metric_value) / (n - 1)) if n > 1 else 0.0
+        )
+        logger.debug(
+            f"{task.name}: accuracy={metric_value:.4f}±{stderr:.4f} ({time.perf_counter() - t0:.2f}s)"
+        )
+
     elapsed = time.perf_counter() - t0
 
-    scores = [task.score(r, s.target) for r, s in zip(responses, samples)]
-    n = len(samples)
-    accuracy = sum(scores) / n if n else 0.0
-    stderr = math.sqrt(accuracy * (1 - accuracy) / (n - 1)) if n > 1 else 0.0
-
-    logger.debug(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
-
-    # Always collect per-sample data for optional JSONL export (negligible overhead)
     logged_samples: list[LoggedSample] = [
         LoggedSample(
             sample_id=i,
@@ -278,7 +414,7 @@ async def run_task(
     ]
     return TaskResult(
         elapsed_seconds=round(elapsed, 2),
-        metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
+        metrics=Metrics(exact_match=metric_value, exact_match_stderr=stderr),
         num_samples=n,
         samples=logged_samples,
         samples_hash=samples_hash,
@@ -297,7 +433,12 @@ def offline_if_cached(dataset: str, revision: str):
     """
     from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
 
-    hub_path = Path(HF_HUB_CACHE) / f"datasets--{dataset.replace('/', '--')}" / "snapshots" / revision
+    hub_path = (
+        Path(HF_HUB_CACHE)
+        / f"datasets--{dataset.replace('/', '--')}"
+        / "snapshots"
+        / revision
+    )
     cached = hub_path.is_dir()
 
     if cached:
