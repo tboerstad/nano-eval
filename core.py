@@ -17,7 +17,6 @@ import base64
 import hashlib
 import logging
 import math
-import os
 import re
 import time
 from collections.abc import Callable
@@ -131,7 +130,7 @@ async def complete(
         headers=headers,
         trust_env=True,
     ) as client:
-        tasks: list[asyncio.Task[str]] = []
+        payloads: list[dict[str, Any]] = []
         for prompt in prompts:
             if isinstance(prompt, list):
                 messages = prompt
@@ -141,27 +140,43 @@ async def complete(
             else:
                 messages = [{"role": "user", "content": prompt}]
 
-            payload: dict[str, Any] = {
-                "model": config.model,
-                "messages": messages,
-                **config.gen_kwargs,
-            }
-
-            tasks.append(asyncio.create_task(_request(client, config.url, payload)))
-
-        try:
-            return list(
-                await tqdm_asyncio.gather(*tasks, desc=progress_desc, leave=False)
+            payloads.append(
+                {"model": config.model, "messages": messages, **config.gen_kwargs}
             )
-        except BaseException:
-            # On any failure (including Ctrl-C), cancel all pending tasks and await
-            # them to properly "retrieve" their exceptions. Without this, Python logs
-            # "Task exception was never retrieved" for each concurrent task that failed.
-            # Using BaseException (not Exception) ensures cleanup runs on KeyboardInterrupt.
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
-            raise
+
+        # Wrap each request to return (index, result_or_exception). This ensures
+        # tqdm_asyncio.gather completes without raising, avoiding "Task exception
+        # was never retrieved" warnings. We can still fail fast by canceling tasks.
+        async def indexed_request(idx: int) -> tuple[int, str | BaseException]:
+            try:
+                result = await _request(client, config.url, payloads[idx])
+                return idx, result
+            except BaseException as e:
+                return idx, e
+
+        tasks = [asyncio.create_task(indexed_request(i)) for i in range(len(payloads))]
+        results: list[str | None] = [None] * len(payloads)
+        first_error: BaseException | None = None
+
+        # Process results as they complete, fail fast on first error
+        with tqdm_asyncio(total=len(tasks), desc=progress_desc, leave=False) as pbar:
+            for coro in asyncio.as_completed(tasks):
+                idx, result = await coro
+                pbar.update(1)
+                if isinstance(result, BaseException):
+                    first_error = result
+                    for t in tasks:
+                        t.cancel()
+                    break
+                results[idx] = result
+
+        # Await remaining (canceled) tasks to properly retrieve their exceptions
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+        if first_error:
+            raise first_error
+
+        return results  # type: ignore[return-value]
 
 
 def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
@@ -297,7 +312,12 @@ def offline_if_cached(dataset: str, revision: str):
     """
     from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
 
-    hub_path = Path(HF_HUB_CACHE) / f"datasets--{dataset.replace('/', '--')}" / "snapshots" / revision
+    hub_path = (
+        Path(HF_HUB_CACHE)
+        / f"datasets--{dataset.replace('/', '--')}"
+        / "snapshots"
+        / revision
+    )
     cached = hub_path.is_dir()
 
     if cached:
