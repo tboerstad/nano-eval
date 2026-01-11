@@ -287,22 +287,9 @@ async def run_task(
     )
 
 
-def _datasets_cache_dir(dataset: str) -> str:
-    """Convert dataset name to datasets cache directory format."""
-    parts = dataset.split("/")
-    if len(parts) == 2:
-        # Only dataset name is snake_cased, namespace stays as-is
-        name = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", parts[1])
-        name = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", name)
-        return f"{parts[0]}___{name.lower()}"
-    return dataset.lower()
-
-
 @contextmanager
 def offline_if_cached(dataset: str, revision: str):
     """Context manager: enable HF offline mode if dataset is cached (avoids HEAD requests).
-
-    Checks that both huggingface_hub cache and datasets cache directories exist.
 
     Yields:
         Tuple of (cached: bool, hf_home: Path) where cached indicates if dataset
@@ -311,8 +298,7 @@ def offline_if_cached(dataset: str, revision: str):
     from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
 
     hub_path = Path(HF_HUB_CACHE) / f"datasets--{dataset.replace('/', '--')}" / "snapshots" / revision
-    datasets_path = ds_config.HF_DATASETS_CACHE / _datasets_cache_dir(dataset)
-    cached = hub_path.is_dir() and datasets_path.is_dir()
+    cached = hub_path.is_dir()
 
     if cached:
         old = ds_config.HF_HUB_OFFLINE
