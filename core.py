@@ -17,7 +17,6 @@ import base64
 import hashlib
 import logging
 import math
-import os
 import re
 import time
 from collections.abc import Callable
@@ -25,7 +24,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import datasets.config as ds_config
 import httpx
@@ -34,6 +33,41 @@ from tqdm.asyncio import tqdm_asyncio
 from typing_extensions import NotRequired, TypedDict
 
 logger = logging.getLogger(__name__)
+
+
+# OpenAI-compatible message types
+class Message(TypedDict):
+    """A chat message with role and content."""
+
+    role: Literal["user", "assistant", "system"]
+    content: str
+
+
+class ImageUrlData(TypedDict):
+    """Image URL data for vision API."""
+
+    url: str
+
+
+class ImageContent(TypedDict):
+    """Image content item for vision messages."""
+
+    type: Literal["image_url"]
+    image_url: ImageUrlData
+
+
+class TextContent(TypedDict):
+    """Text content item for vision messages."""
+
+    type: Literal["text"]
+    text: str
+
+
+class VisionMessage(TypedDict):
+    """A vision message with multimodal content."""
+
+    role: Literal["user", "assistant", "system"]
+    content: list[ImageContent | TextContent]
 
 
 class Metrics(TypedDict):
@@ -64,7 +98,7 @@ class Sample:
     """A single evaluation sample: prompt + expected target."""
 
     prompt: (
-        str | tuple[str, list[Any]] | list[dict[str, str]]
+        str | tuple[str, list[Any]] | list[Message]
     )  # text, (text, images), or messages
     target: str
 
@@ -104,7 +138,7 @@ async def _request(
 
 
 async def complete(
-    prompts: list[str | tuple[str, list] | list[dict[str, str]]],
+    prompts: list[str | tuple[str, list[Any]] | list[Message]],
     config: APIConfig,
     progress_desc: str = "Running evals",
 ) -> list[str]:
@@ -139,7 +173,7 @@ async def complete(
                 text, images = prompt
                 messages = _build_vision_message(text, images)
             else:
-                messages = [{"role": "user", "content": prompt}]
+                messages = [Message(role="user", content=prompt)]
 
             payload: dict[str, Any] = {
                 "model": config.model,
@@ -164,19 +198,19 @@ async def complete(
             raise
 
 
-def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
+def _build_vision_message(text: str, images: list[Any]) -> list[VisionMessage]:
     """Build OpenAI vision API message."""
-    content: list[dict[str, Any]] = []
+    content: list[ImageContent | TextContent] = []
     for img in images:
         if b64 := _encode_image(img):
             content.append(
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/png;base64,{b64}"},
-                }
+                ImageContent(
+                    type="image_url",
+                    image_url=ImageUrlData(url=f"data:image/png;base64,{b64}"),
+                )
             )
-    content.append({"type": "text", "text": text.replace("<image>", "").strip()})
-    return [{"role": "user", "content": content}]
+    content.append(TextContent(type="text", text=text.replace("<image>", "").strip()))
+    return [VisionMessage(role="user", content=content)]
 
 
 def _encode_image(image: Any) -> str:
@@ -208,7 +242,7 @@ def _normalize(text: str) -> str:
     return text.lower().strip()
 
 
-def _prompt_to_str(prompt: str | tuple[str, list] | list[dict[str, str]]) -> str:
+def _prompt_to_str(prompt: str | tuple[str, list[Any]] | list[Message]) -> str:
     """Extract text from prompt (handles multimodal tuples and message lists)."""
     if isinstance(prompt, list):
         return "\n".join(f"{m['role']}: {m['content']}" for m in prompt)
@@ -297,7 +331,12 @@ def offline_if_cached(dataset: str, revision: str):
     """
     from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
 
-    hub_path = Path(HF_HUB_CACHE) / f"datasets--{dataset.replace('/', '--')}" / "snapshots" / revision
+    hub_path = (
+        Path(HF_HUB_CACHE)
+        / f"datasets--{dataset.replace('/', '--')}"
+        / "snapshots"
+        / revision
+    )
     cached = hub_path.is_dir()
 
     if cached:
