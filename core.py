@@ -287,12 +287,7 @@ async def run_task(
     )
 
 
-def _get_hf_home() -> Path:
-    """Get the HuggingFace home directory (parent of all caches)."""
-    return Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
-
-
-def _get_datasets_cache_dir(dataset: str) -> str:
+def _datasets_cache_dir(dataset: str) -> str:
     """Convert dataset name to datasets cache directory format."""
     parts = dataset.split("/")
     if len(parts) == 2:
@@ -313,22 +308,17 @@ def offline_if_cached(dataset: str, revision: str):
         Tuple of (cached: bool, hf_home: Path) where cached indicates if dataset
         is in cache and hf_home is the HuggingFace cache directory.
     """
-    hf_home = _get_hf_home()
+    from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
 
-    # Hub cache: raw downloaded files
-    hub_path = (
-        hf_home / "hub" / f"datasets--{dataset.replace('/', '--')}" / "snapshots" / revision
-    )
-    # Datasets cache: processed Arrow files
-    datasets_path = hf_home / "datasets" / _get_datasets_cache_dir(dataset)
-
+    hub_path = Path(HF_HUB_CACHE) / f"datasets--{dataset.replace('/', '--')}" / "snapshots" / revision
+    datasets_path = ds_config.HF_DATASETS_CACHE / _datasets_cache_dir(dataset)
     cached = hub_path.is_dir() and datasets_path.is_dir()
 
     if cached:
         old = ds_config.HF_HUB_OFFLINE
         ds_config.HF_HUB_OFFLINE = True
     try:
-        yield cached, hf_home
+        yield cached, Path(HF_HOME)
     finally:
         if cached:
             ds_config.HF_HUB_OFFLINE = old
