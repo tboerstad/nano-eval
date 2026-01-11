@@ -12,6 +12,7 @@ Responsibilities:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import logging
@@ -29,7 +30,7 @@ from typing import Any, TypedDict
 import datasets.config as ds_config
 import httpx
 from PIL import Image
-from tqdm.asyncio import tqdm_asyncio
+from tqdm import tqdm
 from typing_extensions import NotRequired
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,45 @@ async def _request(
     raise RuntimeError(f"Request failed: {resp.text}")
 
 
+async def _gather_with_progress(
+    coros: list[Any],
+    desc: str = "",
+) -> list[Any]:
+    """
+    Gather coroutines with progress bar and clean error handling.
+
+    Fails fast on first error, but ensures all task exceptions are retrieved
+    to prevent "Task exception was never retrieved" warnings. Raises the last
+    error for better visibility in terminal output.
+    """
+    progress = tqdm(total=len(coros), desc=desc, leave=False)
+    completed = 0
+
+    async def tracked(coro: Any) -> Any:
+        nonlocal completed
+        result = await coro
+        completed += 1
+        progress.update(1)
+        return result
+
+    tasks = [asyncio.create_task(tracked(c)) for c in coros]
+
+    try:
+        return list(await asyncio.gather(*tasks))
+    except BaseException:
+        # Cancel remaining tasks
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        # Retrieve all exceptions to prevent "never retrieved" warnings
+        all_results = await asyncio.gather(*tasks, return_exceptions=True)
+        errors = [r for r in all_results if isinstance(r, BaseException)]
+        # Raise the last error so it appears at the bottom of output
+        raise errors[-1] if errors else RuntimeError("Unknown error")
+    finally:
+        progress.close()
+
+
 async def complete(
     prompts: list[str | tuple[str, list] | list[dict[str, str]]],
     config: APIConfig,
@@ -130,7 +170,7 @@ async def complete(
         headers=headers,
         trust_env=True,
     ) as client:
-        tasks = []
+        payloads = []
         for prompt in prompts:
             if isinstance(prompt, list):
                 messages = prompt
@@ -140,15 +180,18 @@ async def complete(
             else:
                 messages = [{"role": "user", "content": prompt}]
 
-            payload: dict[str, Any] = {
-                "model": config.model,
-                "messages": messages,
-                **config.gen_kwargs,
-            }
+            payloads.append(
+                {
+                    "model": config.model,
+                    "messages": messages,
+                    **config.gen_kwargs,
+                }
+            )
 
-            tasks.append(_request(client, config.url, payload))
-
-        return list(await tqdm_asyncio.gather(*tasks, desc=progress_desc, leave=False))
+        return await _gather_with_progress(
+            [_request(client, config.url, p) for p in payloads],
+            desc=progress_desc,
+        )
 
 
 def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
@@ -241,9 +284,7 @@ async def run_task(
         f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
     )
     t0 = time.perf_counter()
-    desc = (
-        "Running vision eval" if task.task_type == "vision" else "Running text eval"
-    )
+    desc = "Running vision eval" if task.task_type == "vision" else "Running text eval"
     responses = await complete(prompts, config, desc)
     elapsed = time.perf_counter() - t0
 
