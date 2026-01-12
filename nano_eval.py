@@ -220,12 +220,17 @@ def _print_results_table(result: EvalResult) -> None:
         task_type = r["task_type"]
         num_samples = r["num_samples"]
         duration = int(r["elapsed_seconds"])
-        if task_type == "embedding":
-            value = r["metrics"].get("spearman_correlation", 0.0)
-            print(f"{task_type:<9}  {value:>7.3f}   {num_samples:>7}  {duration:>7}s")
-        else:
-            value = r["metrics"].get("exact_match", 0.0)
-            print(f"{task_type:<9}  {value:>7.1%}  {num_samples:>7}  {duration:>7}s")
+        match task_type:
+            case "embedding":
+                value = r["metrics"].get("spearman_correlation", 0.0)
+                print(
+                    f"{task_type:<9}  {value:>7.3f}   {num_samples:>7}  {duration:>7}s"
+                )
+            case _:
+                value = r["metrics"].get("exact_match", 0.0)
+                print(
+                    f"{task_type:<9}  {value:>7.1%}  {num_samples:>7}  {duration:>7}s"
+                )
 
 
 @click.command()

@@ -413,45 +413,54 @@ async def run_task(
     )
     t0 = time.perf_counter()
 
-    if task.task_type == "embedding":
-        embedding_prompts = [p for p in prompts if isinstance(p, EmbeddingPrompt)]
-        assert len(embedding_prompts) == len(prompts), "Expected all EmbeddingPrompt"
-        similarities = await embed(embedding_prompts, config, "Running embedding eval")
-        responses = [f"{sim:.6f}" for sim in similarities]
-        elapsed = time.perf_counter() - t0
-
-        targets = [float(s.target) for s in samples]
-        correlation = _spearman_correlation(similarities, targets)
-        stderr = _spearman_stderr(correlation, len(samples))
-        scores = [task.score(r, s.target) for r, s in zip(responses, samples)]
-
-        logger.debug(
-            f"{task.name}: spearman={correlation:.4f}±{stderr:.4f} ({elapsed:.2f}s)"
-        )
-
-        logged_samples: list[LoggedSample] = [
-            LoggedSample(
-                sample_id=i,
-                target=s.target,
-                prompt=_prompt_to_str(s.prompt),
-                response=r,
-                exact_match=score,
+    match task.task_type:
+        case "embedding":
+            embedding_prompts = [p for p in prompts if isinstance(p, EmbeddingPrompt)]
+            assert len(embedding_prompts) == len(prompts), (
+                "Expected all EmbeddingPrompt"
             )
-            for i, (s, r, score) in enumerate(zip(samples, responses, scores))
-        ]
-        return TaskResult(
-            elapsed_seconds=round(elapsed, 2),
-            metrics=SpearmanMetrics(
-                spearman_correlation=correlation, spearman_correlation_stderr=stderr
-            ),
-            num_samples=len(samples),
-            samples=logged_samples,
-            samples_hash=samples_hash,
-            task=task.name,
-            task_type=task.task_type,
-        )
+            similarities = await embed(
+                embedding_prompts, config, "Running embedding eval"
+            )
+            responses = [f"{sim:.6f}" for sim in similarities]
+            elapsed = time.perf_counter() - t0
 
-    desc = "Running vision eval" if task.task_type == "vision" else "Running text eval"
+            targets = [float(s.target) for s in samples]
+            correlation = _spearman_correlation(similarities, targets)
+            stderr = _spearman_stderr(correlation, len(samples))
+            scores = [task.score(r, s.target) for r, s in zip(responses, samples)]
+
+            logger.debug(
+                f"{task.name}: spearman={correlation:.4f}±{stderr:.4f} ({elapsed:.2f}s)"
+            )
+
+            logged_samples: list[LoggedSample] = [
+                LoggedSample(
+                    sample_id=i,
+                    target=s.target,
+                    prompt=_prompt_to_str(s.prompt),
+                    response=r,
+                    exact_match=score,
+                )
+                for i, (s, r, score) in enumerate(zip(samples, responses, scores))
+            ]
+            return TaskResult(
+                elapsed_seconds=round(elapsed, 2),
+                metrics=SpearmanMetrics(
+                    spearman_correlation=correlation, spearman_correlation_stderr=stderr
+                ),
+                num_samples=len(samples),
+                samples=logged_samples,
+                samples_hash=samples_hash,
+                task=task.name,
+                task_type=task.task_type,
+            )
+
+        case "vision":
+            desc = "Running vision eval"
+        case _:
+            desc = "Running text eval"
+
     responses = await complete(prompts, config, desc)
     elapsed = time.perf_counter() - t0
 
