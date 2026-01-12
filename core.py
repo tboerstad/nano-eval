@@ -20,13 +20,10 @@ import math
 import re
 import time
 from collections.abc import Callable
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from io import BytesIO
-from pathlib import Path
 from typing import Any
 
-import datasets.config as ds_config
 import httpx
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
@@ -298,31 +295,3 @@ async def run_task(
         task=task.name,
         task_type=task.task_type,
     )
-
-
-@contextmanager
-def offline_if_cached(dataset: str, revision: str):
-    """Context manager: enable HF offline mode if dataset is cached (avoids HEAD requests).
-
-    Yields:
-        Tuple of (cached: bool, hf_home: Path) where cached indicates if dataset
-        is in cache and hf_home is the HuggingFace cache directory.
-    """
-    from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
-
-    hub_path = (
-        Path(HF_HUB_CACHE)
-        / f"datasets--{dataset.replace('/', '--')}"
-        / "snapshots"
-        / revision
-    )
-    cached = hub_path.is_dir()
-
-    if cached:
-        old = ds_config.HF_HUB_OFFLINE
-        ds_config.HF_HUB_OFFLINE = True
-    try:
-        yield cached, Path(HF_HOME)
-    finally:
-        if cached:
-            ds_config.HF_HUB_OFFLINE = old
