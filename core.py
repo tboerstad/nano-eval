@@ -264,7 +264,7 @@ async def _embed_pair(
     return f"{_cosine_similarity(emb1, emb2):.6f}"
 
 
-async def embed(prompts: list[EmbeddingPrompt], config: APIConfig) -> list[str]:
+async def embed(prompts: list[Input], config: APIConfig) -> list[str]:
     """
     Embed sentence pairs and compute cosine similarities.
 
@@ -287,10 +287,15 @@ async def embed(prompts: list[EmbeddingPrompt], config: APIConfig) -> list[str]:
         headers=headers,
         trust_env=True,
     ) as client:
-        tasks = [
-            asyncio.create_task(_embed_pair(client, url, p, config.model))
-            for p in prompts
-        ]
+        tasks = []
+        for prompt in prompts:
+            if not isinstance(prompt, EmbeddingPrompt):
+                raise TypeError(
+                    f"Expected EmbeddingPrompt, got {type(prompt).__name__}"
+                )
+            tasks.append(
+                asyncio.create_task(_embed_pair(client, url, prompt, config.model))
+            )
 
         try:
             return list(
@@ -404,9 +409,7 @@ async def run_task(
     # Inference: get responses based on task type
     match task.task_type:
         case "embedding":
-            embedding_prompts = [p for p in prompts if isinstance(p, EmbeddingPrompt)]
-            assert len(embedding_prompts) == n, "Expected all EmbeddingPrompt"
-            responses = await embed(embedding_prompts, config)
+            responses = await embed(prompts, config)
         case "vision":
             responses = await complete(prompts, config, "Running vision eval")
         case _:
