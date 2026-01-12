@@ -17,7 +17,12 @@ from core import Task
 from nano_eval import main
 from tasks.chartqa import samples as load_chartqa_samples, score as chartqa_score
 from tasks.gsm8k import samples as load_gsm8k_samples, score as gsm8k_score
-from tasks.stsb import samples as load_stsb_samples, score as stsb_score
+from tasks.stsb import (
+    compute_metrics as stsb_compute_metrics,
+    embed as stsb_embed,
+    samples as load_stsb_samples,
+    score as stsb_score,
+)
 
 # GSM8K: 10 mock responses keyed by prompt hash (7 correct, 3 wrong = 70% accuracy)
 # Hashes are for the last user message (the question) in multiturn fewshot format
@@ -226,6 +231,8 @@ class TestE2E:
             task_type="embedding",
             samples=lambda n, seed: real_samples,
             score=stsb_score,
+            infer=stsb_embed,
+            compute_metrics=stsb_compute_metrics,
         )
 
         with respx.mock:
