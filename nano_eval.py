@@ -270,7 +270,7 @@ def main(
 ) -> None:
     """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
 
-    Example: nano-eval -t text  # auto-detects 127.0.0.1:8000 or :8080
+    Example: nano-eval -t text
     """
     log_level = logging.DEBUG if verbose >= 2 else logging.INFO
     log_format = "%(message)s" if verbose < 1 else logging.BASIC_FORMAT
