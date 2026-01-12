@@ -97,7 +97,7 @@ async def evaluate(
     Run evaluations for specified types.
 
     Args:
-        types: List of types to evaluate ("text" or "vision")
+        types: List of task types to evaluate (must be registered in tasks.TASKS)
         base_url: OpenAI-compatible API endpoint (e.g. http://localhost:8000/v1)
         model: Model name. Auto-detected if endpoint serves exactly one model.
         api_key: Bearer token for API authentication
@@ -193,10 +193,9 @@ def _print_results_table(result: EvalResult) -> None:
     "-t",
     "--type",
     "types",
-    type=click.Choice(["text", "vision"]),
     required=True,
     multiple=True,
-    help="Type to evaluate (can be repeated)",
+    help="Task type to evaluate (can be repeated). Must be registered in TASKS.",
 )
 @click.option("--base-url", required=True, help="OpenAI-compatible API endpoint")
 @click.option("--model", help="Model name; auto-detected if endpoint serves one model")
@@ -241,9 +240,9 @@ def main(
     seed: int,
     verbose: int,
 ) -> None:
-    """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
+    """Evaluate LLMs on custom tasks via OpenAI-compatible APIs.
 
-    Example: nano-eval -t text --base-url http://localhost:8000/v1
+    Example: nano-eval -t mytask --base-url http://localhost:8000/v1
     """
     log_level = logging.DEBUG if verbose >= 2 else logging.INFO
     log_format = "%(message)s" if verbose < 1 else logging.BASIC_FORMAT
