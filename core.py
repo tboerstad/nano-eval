@@ -263,11 +263,10 @@ async def _embed_batch(
     return [item["embedding"] for item in sorted_data]
 
 
-async def embed(
-    prompts: list[EmbeddingPrompt],
-    config: APIConfig,
-    progress_desc: str = "Running embedding eval",
-) -> list[float]:
+_EMBEDDING_BATCH_SIZE = 32
+
+
+async def embed(prompts: list[EmbeddingPrompt], config: APIConfig) -> list[float]:
     """
     Embed sentence pairs and compute cosine similarities.
 
@@ -283,7 +282,6 @@ async def embed(
         headers["Authorization"] = f"Bearer {config.api_key}"
 
     url = config.url.replace("/chat/completions", "/embeddings")
-
     all_sentences = [s for p in prompts for s in (p.sentence1, p.sentence2)]
 
     async with httpx.AsyncClient(
@@ -292,20 +290,23 @@ async def embed(
         headers=headers,
         trust_env=True,
     ) as client:
-        batch_size = 32
-        all_embeddings: list[list[float]] = []
-        tasks: list[asyncio.Task[list[list[float]]]] = []
-
-        for i in range(0, len(all_sentences), batch_size):
-            batch = all_sentences[i : i + batch_size]
-            tasks.append(
-                asyncio.create_task(_embed_batch(client, url, batch, config.model))
+        tasks = [
+            asyncio.create_task(
+                _embed_batch(
+                    client,
+                    url,
+                    all_sentences[i : i + _EMBEDDING_BATCH_SIZE],
+                    config.model,
+                )
             )
+            for i in range(0, len(all_sentences), _EMBEDDING_BATCH_SIZE)
+        ]
 
         try:
-            batches = await tqdm_asyncio.gather(*tasks, desc=progress_desc, leave=False)
-            for batch_result in batches:
-                all_embeddings.extend(batch_result)
+            batches = await tqdm_asyncio.gather(
+                *tasks, desc="Running embedding eval", leave=False
+            )
+            all_embeddings = [emb for batch in batches for emb in batch]
         except BaseException:
             for task in tasks:
                 task.cancel()
@@ -406,70 +407,49 @@ async def run_task(
     samples = task.samples(max_samples, seed)
     samples_hash = compute_samples_hash(samples)
     prompts = [s.prompt for s in samples]
+    n = len(samples)
 
     logger.info(
         f"Starting {task.task_type} ({task.name}) eval: "
-        f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
+        f"{n} samples, up to {config.max_concurrent} concurrent requests"
     )
     t0 = time.perf_counter()
 
+    # Inference: get responses based on task type
     match task.task_type:
         case "embedding":
             embedding_prompts = [p for p in prompts if isinstance(p, EmbeddingPrompt)]
-            assert len(embedding_prompts) == len(prompts), (
-                "Expected all EmbeddingPrompt"
-            )
-            similarities = await embed(
-                embedding_prompts, config, "Running embedding eval"
-            )
+            assert len(embedding_prompts) == n, "Expected all EmbeddingPrompt"
+            similarities = await embed(embedding_prompts, config)
             responses = [f"{sim:.6f}" for sim in similarities]
-            elapsed = time.perf_counter() - t0
-
-            targets = [float(s.target) for s in samples]
-            correlation = _spearman_correlation(similarities, targets)
-            stderr = _spearman_stderr(correlation, len(samples))
-            scores = [task.score(r, s.target) for r, s in zip(responses, samples)]
-
-            logger.debug(
-                f"{task.name}: spearman={correlation:.4f}±{stderr:.4f} ({elapsed:.2f}s)"
-            )
-
-            logged_samples: list[LoggedSample] = [
-                LoggedSample(
-                    sample_id=i,
-                    target=s.target,
-                    prompt=_prompt_to_str(s.prompt),
-                    response=r,
-                    exact_match=score,
-                )
-                for i, (s, r, score) in enumerate(zip(samples, responses, scores))
-            ]
-            return TaskResult(
-                elapsed_seconds=round(elapsed, 2),
-                metrics=SpearmanMetrics(
-                    spearman_correlation=correlation, spearman_correlation_stderr=stderr
-                ),
-                num_samples=len(samples),
-                samples=logged_samples,
-                samples_hash=samples_hash,
-                task=task.name,
-                task_type=task.task_type,
-            )
-
         case "vision":
-            desc = "Running vision eval"
+            responses = await complete(prompts, config, "Running vision eval")
         case _:
-            desc = "Running text eval"
+            responses = await complete(prompts, config, "Running text eval")
 
-    responses = await complete(prompts, config, desc)
     elapsed = time.perf_counter() - t0
-
     scores = [task.score(r, s.target) for r, s in zip(responses, samples)]
-    n = len(samples)
-    accuracy = sum(scores) / n if n else 0.0
-    stderr = math.sqrt(accuracy * (1 - accuracy) / (n - 1)) if n > 1 else 0.0
 
-    logger.debug(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
+    # Metrics: compute based on task type
+    match task.task_type:
+        case "embedding":
+            predicted = [float(r) for r in responses]
+            targets = [float(s.target) for s in samples]
+            corr = _spearman_correlation(predicted, targets)
+            metrics: Metrics = SpearmanMetrics(
+                spearman_correlation=corr,
+                spearman_correlation_stderr=_spearman_stderr(corr, n),
+            )
+            logger.debug(f"{task.name}: spearman={corr:.4f} ({elapsed:.2f}s)")
+        case _:
+            acc = sum(scores) / n if n else 0.0
+            metrics = AccuracyMetrics(
+                exact_match=acc,
+                exact_match_stderr=math.sqrt(acc * (1 - acc) / (n - 1))
+                if n > 1
+                else 0.0,
+            )
+            logger.debug(f"{task.name}: accuracy={acc:.4f} ({elapsed:.2f}s)")
 
     logged_samples = [
         LoggedSample(
@@ -481,9 +461,10 @@ async def run_task(
         )
         for i, (s, r, score) in enumerate(zip(samples, responses, scores))
     ]
+
     return TaskResult(
         elapsed_seconds=round(elapsed, 2),
-        metrics=AccuracyMetrics(exact_match=accuracy, exact_match_stderr=stderr),
+        metrics=metrics,
         num_samples=n,
         samples=logged_samples,
         samples_hash=samples_hash,
