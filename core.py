@@ -252,8 +252,8 @@ async def _embed_pair(
     url: str,
     prompt: EmbeddingPrompt,
     model: str,
-) -> float:
-    """Embed a sentence pair and return cosine similarity."""
+) -> str:
+    """Embed a sentence pair and return cosine similarity as string."""
     payload = {"model": model, "input": [prompt.sentence1, prompt.sentence2]}
     resp = await client.post(url, json=payload)
     if not resp.is_success:
@@ -261,10 +261,10 @@ async def _embed_pair(
     data = resp.json()["data"]
     sorted_data = sorted(data, key=lambda x: x["index"])
     emb1, emb2 = sorted_data[0]["embedding"], sorted_data[1]["embedding"]
-    return _cosine_similarity(emb1, emb2)
+    return f"{_cosine_similarity(emb1, emb2):.6f}"
 
 
-async def embed(prompts: list[EmbeddingPrompt], config: APIConfig) -> list[float]:
+async def embed(prompts: list[EmbeddingPrompt], config: APIConfig) -> list[str]:
     """
     Embed sentence pairs and compute cosine similarities.
 
@@ -273,7 +273,7 @@ async def embed(prompts: list[EmbeddingPrompt], config: APIConfig) -> list[float
         config: API configuration
 
     Returns:
-        List of cosine similarities (one per pair)
+        List of cosine similarities as strings (one per pair)
     """
     headers = {"Content-Type": "application/json"}
     if config.api_key:
@@ -406,8 +406,7 @@ async def run_task(
         case "embedding":
             embedding_prompts = [p for p in prompts if isinstance(p, EmbeddingPrompt)]
             assert len(embedding_prompts) == n, "Expected all EmbeddingPrompt"
-            similarities = await embed(embedding_prompts, config)
-            responses = [f"{sim:.6f}" for sim in similarities]
+            responses = await embed(embedding_prompts, config)
         case "vision":
             responses = await complete(prompts, config, "Running vision eval")
         case _:
