@@ -145,16 +145,9 @@ async def complete(
     ) as client:
         tasks: list[asyncio.Task[str]] = []
         for prompt in prompts:
-            if isinstance(prompt, VisionPrompt):
-                messages = _build_vision_message(prompt.text, prompt.images)
-            elif isinstance(prompt.text, list):
-                messages = prompt.text
-            else:
-                messages = [{"role": "user", "content": prompt.text}]
-
             payload: dict[str, Any] = {
                 "model": config.model,
-                "messages": messages,
+                "messages": _prompt_to_messages(prompt),
                 **config.gen_kwargs,
             }
 
@@ -188,6 +181,15 @@ def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
             )
     content.append({"type": "text", "text": text.replace("<image>", "").strip()})
     return [{"role": "user", "content": content}]
+
+
+def _prompt_to_messages(prompt: Input) -> list[dict[str, Any]]:
+    """Convert a prompt to OpenAI-compatible messages format."""
+    if isinstance(prompt, VisionPrompt):
+        return _build_vision_message(prompt.text, prompt.images)
+    if isinstance(prompt.text, list):
+        return prompt.text
+    return [{"role": "user", "content": prompt.text}]
 
 
 def _encode_image(image: Any) -> str:
