@@ -33,9 +33,9 @@ Usage: nano-eval [OPTIONS]
 
 Options:
   -t, --type [text|vision]        Type to evaluate (can be repeated)
-                                    [required]
+                                  [required]
   --base-url TEXT                 OpenAI-compatible API endpoint; tries
-                                     127.0.0.1:8000/8080 if omitted
+                                  127.0.0.1:8000/8080 if omitted
   --model TEXT                    Model name; auto-detected if endpoint serves
                                   one model
   --api-key TEXT                  Bearer token for API authentication
