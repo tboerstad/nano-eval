@@ -32,10 +32,10 @@ Usage: nano-eval [OPTIONS]
   Example: nano-eval -t text
 
 Options:
-  -t, --type [text|vision]        Type to evaluate (can be repeated)
+  -t, --type [text|vision]       Type to evaluate (can be repeated)
                                   [required]
-  --base-url TEXT                 OpenAI-compatible API endpoint; auto-detected
-                                  from 127.0.0.1:8000/8080 if omitted
+  --base-url TEXT                OpenAI-compatible API endpoint; tries
+                                   127.0.0.1:8000/8080 if omitted
   --model TEXT                    Model name; auto-detected if endpoint serves
                                   one model
   --api-key TEXT                  Bearer token for API authentication
