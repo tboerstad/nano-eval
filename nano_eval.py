@@ -224,7 +224,7 @@ def _print_results_table(result: EvalResult) -> None:
 )
 @click.option(
     "--base-url",
-    help="OpenAI-compatible API endpoint; auto-detected from 127.0.0.1:8000/8080 if omitted",
+    help="OpenAI-compatible API endpoint; tries 127.0.0.1:8000/8080 if omitted",
 )
 @click.option("--model", help="Model name; auto-detected if endpoint serves one model")
 @click.option("--api-key", default="", help="Bearer token for API authentication")
