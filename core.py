@@ -35,11 +35,21 @@ from typing_extensions import NotRequired, TypedDict
 logger = logging.getLogger(__name__)
 
 
-class Metrics(TypedDict, total=False):
+class AccuracyMetrics(TypedDict):
+    """Metrics for text/vision tasks using exact match scoring."""
+
     exact_match: float
     exact_match_stderr: float
+
+
+class SpearmanMetrics(TypedDict):
+    """Metrics for embedding tasks using Spearman correlation."""
+
     spearman_correlation: float
     spearman_correlation_stderr: float
+
+
+Metrics = AccuracyMetrics | SpearmanMetrics
 
 
 class LoggedSample(TypedDict):
@@ -431,7 +441,7 @@ async def run_task(
         ]
         return TaskResult(
             elapsed_seconds=round(elapsed, 2),
-            metrics=Metrics(
+            metrics=SpearmanMetrics(
                 spearman_correlation=correlation, spearman_correlation_stderr=stderr
             ),
             num_samples=len(samples),
@@ -464,7 +474,7 @@ async def run_task(
     ]
     return TaskResult(
         elapsed_seconds=round(elapsed, 2),
-        metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
+        metrics=AccuracyMetrics(exact_match=accuracy, exact_match_stderr=stderr),
         num_samples=n,
         samples=logged_samples,
         samples_hash=samples_hash,
