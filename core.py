@@ -247,23 +247,21 @@ def _spearman_stderr(r: float, n: int) -> float:
     return (r_upper - r_lower) / (2 * 1.96)
 
 
-async def _embed_batch(
+async def _embed_pair(
     client: httpx.AsyncClient,
     url: str,
-    texts: list[str],
+    prompt: EmbeddingPrompt,
     model: str,
-) -> list[list[float]]:
-    """Embed a batch of texts. Returns list of embedding vectors."""
-    payload = {"model": model, "input": texts}
+) -> float:
+    """Embed a sentence pair and return cosine similarity."""
+    payload = {"model": model, "input": [prompt.sentence1, prompt.sentence2]}
     resp = await client.post(url, json=payload)
     if not resp.is_success:
         raise RuntimeError(f"Embedding request failed: {resp.text}")
     data = resp.json()["data"]
     sorted_data = sorted(data, key=lambda x: x["index"])
-    return [item["embedding"] for item in sorted_data]
-
-
-_EMBEDDING_BATCH_SIZE = 32
+    emb1, emb2 = sorted_data[0]["embedding"], sorted_data[1]["embedding"]
+    return _cosine_similarity(emb1, emb2)
 
 
 async def embed(prompts: list[EmbeddingPrompt], config: APIConfig) -> list[float]:
@@ -282,7 +280,6 @@ async def embed(prompts: list[EmbeddingPrompt], config: APIConfig) -> list[float
         headers["Authorization"] = f"Bearer {config.api_key}"
 
     url = config.url.replace("/chat/completions", "/embeddings")
-    all_sentences = [s for p in prompts for s in (p.sentence1, p.sentence2)]
 
     async with httpx.AsyncClient(
         limits=httpx.Limits(max_connections=config.max_concurrent),
@@ -291,32 +288,21 @@ async def embed(prompts: list[EmbeddingPrompt], config: APIConfig) -> list[float
         trust_env=True,
     ) as client:
         tasks = [
-            asyncio.create_task(
-                _embed_batch(
-                    client,
-                    url,
-                    all_sentences[i : i + _EMBEDDING_BATCH_SIZE],
-                    config.model,
-                )
-            )
-            for i in range(0, len(all_sentences), _EMBEDDING_BATCH_SIZE)
+            asyncio.create_task(_embed_pair(client, url, p, config.model))
+            for p in prompts
         ]
 
         try:
-            batches = await tqdm_asyncio.gather(
-                *tasks, desc="Running embedding eval", leave=False
+            return list(
+                await tqdm_asyncio.gather(
+                    *tasks, desc="Running embedding eval", leave=False
+                )
             )
-            all_embeddings = [emb for batch in batches for emb in batch]
         except BaseException:
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             raise
-
-    return [
-        _cosine_similarity(all_embeddings[i], all_embeddings[i + 1])
-        for i in range(0, len(all_embeddings), 2)
-    ]
 
 
 def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
