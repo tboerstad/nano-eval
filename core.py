@@ -35,9 +35,21 @@ from typing_extensions import NotRequired, TypedDict
 logger = logging.getLogger(__name__)
 
 
-class Metrics(TypedDict):
+class AccuracyMetrics(TypedDict):
+    """Metrics for text/vision tasks using exact match scoring."""
+
     exact_match: float
     exact_match_stderr: float
+
+
+class SpearmanMetrics(TypedDict):
+    """Metrics for embedding tasks using Spearman correlation."""
+
+    spearman_correlation: float
+    spearman_correlation_stderr: float
+
+
+Metrics = AccuracyMetrics | SpearmanMetrics
 
 
 class LoggedSample(TypedDict):
@@ -73,7 +85,15 @@ class VisionPrompt:
     images: list[Any]
 
 
-Input = TextPrompt | VisionPrompt
+@dataclass(frozen=True)
+class EmbeddingPrompt:
+    """Pair of texts for embedding similarity evaluation."""
+
+    sentence1: str
+    sentence2: str
+
+
+Input = TextPrompt | VisionPrompt | EmbeddingPrompt
 
 
 @dataclass
@@ -89,9 +109,13 @@ class Task:
     """Minimal task definition: a loader of samples + a scoring function."""
 
     name: str
-    task_type: str  # "text" or "vision"
+    task_type: str
     samples: Callable[[int | None, int | None], list[Sample]]  # (max_samples, seed)
     score: Callable[[str, str], float]  # (response, target) -> score
+    # Optional: custom inference function (default: complete)
+    infer: Callable[[list[Input], APIConfig], Any] | None = None
+    # Optional: custom metrics function (default: accuracy)
+    compute_metrics: Callable[[list[str], list[Sample]], Metrics] | None = None
 
 
 @dataclass
@@ -147,10 +171,13 @@ async def complete(
         for prompt in prompts:
             if isinstance(prompt, VisionPrompt):
                 messages = _build_vision_message(prompt.text, prompt.images)
-            elif isinstance(prompt.text, list):
-                messages = prompt.text
+            elif isinstance(prompt, TextPrompt):
+                if isinstance(prompt.text, list):
+                    messages = prompt.text
+                else:
+                    messages = [{"role": "user", "content": prompt.text}]
             else:
-                messages = [{"role": "user", "content": prompt.text}]
+                raise TypeError(f"Unsupported prompt type: {type(prompt).__name__}")
 
             payload: dict[str, Any] = {
                 "model": config.model,
@@ -220,9 +247,11 @@ def _normalize(text: str) -> str:
 
 
 def _prompt_to_str(prompt: Input) -> str:
-    """Extract text from prompt (handles TextPrompt and VisionPrompt)."""
+    """Extract text from prompt (handles TextPrompt, VisionPrompt, EmbeddingPrompt)."""
     if isinstance(prompt, VisionPrompt):
         return prompt.text
+    if isinstance(prompt, EmbeddingPrompt):
+        return f"{prompt.sentence1} ||| {prompt.sentence2}"
     if isinstance(prompt.text, list):
         return "\n".join(f"{m['role']}: {m['content']}" for m in prompt.text)
     return prompt.text
@@ -261,25 +290,36 @@ async def run_task(
     samples = task.samples(max_samples, seed)
     samples_hash = compute_samples_hash(samples)
     prompts = [s.prompt for s in samples]
+    n = len(samples)
 
     logger.info(
         f"Starting {task.task_type} ({task.name}) eval: "
-        f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
+        f"{n} samples, up to {config.max_concurrent} concurrent requests"
     )
     t0 = time.perf_counter()
-    desc = "Running vision eval" if task.task_type == "vision" else "Running text eval"
-    responses = await complete(prompts, config, desc)
+
+    # Inference: use task-specific function or default to complete()
+    if task.infer:
+        responses = await task.infer(prompts, config)
+    else:
+        progress_desc = f"Running {task.task_type} eval"
+        responses = await complete(prompts, config, progress_desc)
+
     elapsed = time.perf_counter() - t0
-
     scores = [task.score(r, s.target) for r, s in zip(responses, samples)]
-    n = len(samples)
-    accuracy = sum(scores) / n if n else 0.0
-    stderr = math.sqrt(accuracy * (1 - accuracy) / (n - 1)) if n > 1 else 0.0
 
-    logger.debug(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
+    # Metrics: use task-specific function or default to accuracy
+    if task.compute_metrics:
+        metrics = task.compute_metrics(responses, samples)
+    else:
+        acc = sum(scores) / n if n else 0.0
+        metrics = AccuracyMetrics(
+            exact_match=acc,
+            exact_match_stderr=math.sqrt(acc * (1 - acc) / (n - 1)) if n > 1 else 0.0,
+        )
+    logger.debug(f"{task.name}: {metrics} ({elapsed:.2f}s)")
 
-    # Always collect per-sample data for optional JSONL export (negligible overhead)
-    logged_samples: list[LoggedSample] = [
+    logged_samples = [
         LoggedSample(
             sample_id=i,
             target=s.target,
@@ -289,9 +329,10 @@ async def run_task(
         )
         for i, (s, r, score) in enumerate(zip(samples, responses, scores))
     ]
+
     return TaskResult(
         elapsed_seconds=round(elapsed, 2),
-        metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
+        metrics=metrics,
         num_samples=n,
         samples=logged_samples,
         samples_hash=samples_hash,

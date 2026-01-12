@@ -117,7 +117,7 @@ async def evaluate(
     Run evaluations for specified types.
 
     Args:
-        types: List of types to evaluate ("text" or "vision")
+        types: List of types to evaluate ("text", "vision", or "embedding")
         base_url: OpenAI-compatible API endpoint. Auto-detected from 127.0.0.1:8000/8080 if omitted.
         model: Model name. Auto-detected if endpoint serves exactly one model.
         api_key: Bearer token for API authentication
@@ -137,8 +137,18 @@ async def evaluate(
         logger.info(f"Auto-detected endpoint: {base_url}")
 
     base_url = base_url.rstrip("/")
-    logger.info(f"Checking that endpoint is responding: {base_url}/chat/completions")
-    _check_endpoint(f"{base_url}/chat/completions", api_key)
+
+    has_embedding = "embedding" in types
+    has_completion = any(t in types for t in ["text", "vision"])
+
+    if has_completion:
+        logger.info(
+            f"Checking that endpoint is responding: {base_url}/chat/completions"
+        )
+        _check_endpoint(f"{base_url}/chat/completions", api_key)
+    if has_embedding:
+        logger.info(f"Checking that endpoint is responding: {base_url}/embeddings")
+        _check_endpoint(f"{base_url}/embeddings", api_key)
 
     if model is None:
         models = _list_models(base_url, api_key)
@@ -204,12 +214,23 @@ async def evaluate(
 
 def _print_results_table(result: EvalResult) -> None:
     """Print a mini results table."""
-    print("\nTask    Accuracy  Samples  Duration")
-    print("------  --------  -------  --------")
+    print("\nTask       Metric    Samples  Duration")
+    print("---------  --------  -------  --------")
     for r in result["results"].values():
-        print(
-            f"{r['task_type']:<6}  {r['metrics']['exact_match']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s"
-        )
+        task_type = r["task_type"]
+        num_samples = r["num_samples"]
+        duration = int(r["elapsed_seconds"])
+        match task_type:
+            case "embedding":
+                value = r["metrics"].get("spearman_correlation", 0.0)
+                print(
+                    f"{task_type:<9}  {value:>7.3f}   {num_samples:>7}  {duration:>7}s"
+                )
+            case _:
+                value = r["metrics"].get("exact_match", 0.0)
+                print(
+                    f"{task_type:<9}  {value:>7.1%}  {num_samples:>7}  {duration:>7}s"
+                )
 
 
 @click.command()
@@ -217,7 +238,7 @@ def _print_results_table(result: EvalResult) -> None:
     "-t",
     "--type",
     "types",
-    type=click.Choice(["text", "vision"]),
+    type=click.Choice(["text", "vision", "embedding"]),
     required=True,
     multiple=True,
     help="Type to evaluate (can be repeated)",
