@@ -66,6 +66,26 @@ def _check_endpoint(url: str, api_key: str = "") -> None:
         raise ValueError(f"No response from {url}\nIs the server running?")
 
 
+def _detect_base_url(api_key: str = "") -> str:
+    """Auto-detect local API endpoint by trying common ports."""
+    candidates = [
+        "http://127.0.0.1:8000/v1",
+        "http://127.0.0.1:8080/v1",
+    ]
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+    for base_url in candidates:
+        try:
+            resp = httpx.get(f"{base_url}/models", headers=headers, timeout=2)
+            if resp.status_code in (200, 401):
+                return base_url
+        except httpx.HTTPError:
+            continue
+    raise ValueError(
+        f"No local API server found. Tried: {', '.join(candidates)}\n"
+        "Start a server or provide --base-url explicitly."
+    )
+
+
 def _list_models(base_url: str, api_key: str = "") -> list[str]:
     """Fetch available models from the API's /models endpoint."""
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
@@ -83,7 +103,7 @@ def _write_samples_jsonl(filepath: Path, samples: list[LoggedSample]) -> None:
 
 async def evaluate(
     types: list[str],
-    base_url: str,
+    base_url: str | None = None,
     model: str | None = None,
     api_key: str = "",
     max_concurrent: int = 8,
@@ -98,7 +118,7 @@ async def evaluate(
 
     Args:
         types: List of types to evaluate ("text" or "vision")
-        base_url: OpenAI-compatible API endpoint (e.g. http://localhost:8000/v1)
+        base_url: OpenAI-compatible API endpoint. Auto-detected from 127.0.0.1:8000/8080 if omitted.
         model: Model name. Auto-detected if endpoint serves exactly one model.
         api_key: Bearer token for API authentication
         gen_kwargs: API params like temperature, max_tokens, seed
@@ -111,6 +131,10 @@ async def evaluate(
     """
     from core import APIConfig, TaskResult, run_task
     from tasks import TASKS
+
+    if base_url is None:
+        base_url = _detect_base_url(api_key)
+        logger.info(f"Auto-detected endpoint: {base_url}")
 
     base_url = base_url.rstrip("/")
     logger.info(f"Checking that endpoint is responding: {base_url}/chat/completions")
@@ -198,7 +222,10 @@ def _print_results_table(result: EvalResult) -> None:
     multiple=True,
     help="Type to evaluate (can be repeated)",
 )
-@click.option("--base-url", required=True, help="OpenAI-compatible API endpoint")
+@click.option(
+    "--base-url",
+    help="OpenAI-compatible API endpoint; auto-detected from 127.0.0.1:8000/8080 if omitted",
+)
 @click.option("--model", help="Model name; auto-detected if endpoint serves one model")
 @click.option("--api-key", default="", help="Bearer token for API authentication")
 @click.option("--max-concurrent", default=8, show_default=True)
@@ -230,7 +257,7 @@ def _print_results_table(result: EvalResult) -> None:
 @click.version_option(version=version("nano-eval"), prog_name="nano-eval")
 def main(
     types: tuple[str, ...],
-    base_url: str,
+    base_url: str | None,
     model: str | None,
     api_key: str,
     max_concurrent: int,
@@ -243,7 +270,7 @@ def main(
 ) -> None:
     """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
 
-    Example: nano-eval -t text --base-url http://localhost:8000/v1
+    Example: nano-eval -t text  # auto-detects 127.0.0.1:8000 or :8080
     """
     log_level = logging.DEBUG if verbose >= 2 else logging.INFO
     log_format = "%(message)s" if verbose < 1 else logging.BASIC_FORMAT

@@ -3,7 +3,7 @@
 ## Quickstart
 
 ```bash
-uvx nano-eval -t text -t vision --base-url http://localhost:8000/v1 --max-samples 100
+uvx nano-eval -t text -t vision --max-samples 100  # auto-detects 127.0.0.1:8000 or :8080
 
 # prints:
 Task    Accuracy  Samples  Duration
@@ -29,12 +29,13 @@ Usage: nano-eval [OPTIONS]
 
   Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
 
-  Example: nano-eval -t text --base-url http://localhost:8000/v1
+  Example: nano-eval -t text  # auto-detects 127.0.0.1:8000 or :8080
 
 Options:
   -t, --type [text|vision]        Type to evaluate (can be repeated)
                                   [required]
-  --base-url TEXT                 OpenAI-compatible API endpoint  [required]
+  --base-url TEXT                 OpenAI-compatible API endpoint; auto-detected
+                                  from 127.0.0.1:8000/8080 if omitted
   --model TEXT                    Model name; auto-detected if endpoint serves
                                   one model
   --api-key TEXT                  Bearer token for API authentication
@@ -60,9 +61,7 @@ from nano_eval import evaluate, EvalResult
 
 result: EvalResult = asyncio.run(evaluate(
     types=["text"],
-    base_url="http://localhost:8000/v1",
-    model="google/gemma-3-4b-it",
-    max_samples=100,
+    max_samples=100,  # base_url auto-detected from 127.0.0.1:8000 or :8080
 ))
 text_result = result["results"]["text"]
 print(f"Accuracy: {text_result['metrics']['exact_match']:.1%}")
