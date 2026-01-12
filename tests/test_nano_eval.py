@@ -17,6 +17,7 @@ from core import Task
 from nano_eval import main
 from tasks.chartqa import samples as load_chartqa_samples, score as chartqa_score
 from tasks.gsm8k import samples as load_gsm8k_samples, score as gsm8k_score
+from tasks.stsb import samples as load_stsb_samples, score as stsb_score
 
 # GSM8K: 10 mock responses keyed by prompt hash (7 correct, 3 wrong = 70% accuracy)
 # Hashes are for the last user message (the question) in multiturn fewshot format
@@ -195,6 +196,77 @@ class TestE2E:
         assert samples[0]["exact_match"] == 1.0
         assert samples[4]["target"] == "23"
         assert samples[4]["exact_match"] == 0.0
+
+    def test_stsb_evaluation(self, tmp_path):
+        """STS Benchmark evaluation with real dataset, mocked embedding API."""
+        real_samples = load_stsb_samples(10)
+
+        embedding_cache: dict[str, list[float]] = {}
+        embedding_dim = 384
+
+        def get_embedding(text: str) -> list[float]:
+            if text not in embedding_cache:
+                h = hashlib.md5(text.encode()).hexdigest()
+                embedding_cache[text] = [
+                    (int(h[i : i + 2], 16) - 128) / 128.0
+                    for i in range(0, min(len(h), embedding_dim * 2), 2)
+                ] + [0.0] * (embedding_dim - min(len(h) // 2, embedding_dim))
+            return embedding_cache[text]
+
+        def api_response(request):
+            body = json.loads(request.content)
+            texts = body["input"]
+            embeddings = [
+                {"embedding": get_embedding(t), "index": i} for i, t in enumerate(texts)
+            ]
+            return Response(200, json={"data": embeddings})
+
+        task = Task(
+            name="stsb",
+            task_type="embedding",
+            samples=lambda n, seed: real_samples,
+            score=stsb_score,
+        )
+
+        with respx.mock:
+            respx.get("http://test.com/v1/embeddings").mock(return_value=Response(200))
+            respx.get("http://test.com/v1/models").mock(
+                return_value=Response(
+                    200, json={"object": "list", "data": [{"id": "test"}]}
+                )
+            )
+            respx.post("http://test.com/v1/embeddings").mock(side_effect=api_response)
+
+            with patch.dict("tasks.TASKS", {"embedding": task}):
+                runner = CliRunner()
+                result = runner.invoke(
+                    main,
+                    [
+                        "--type=embedding",
+                        "--base-url=http://test.com/v1",
+                        "--max-samples=10",
+                        "--output-path",
+                        str(tmp_path),
+                        "--log-samples",
+                    ],
+                )
+                assert result.exit_code == 0, result.output
+
+        results = json.loads((tmp_path / "results.json").read_text())
+        assert "spearman_correlation" in results["results"]["embedding"]["metrics"]
+        correlation = results["results"]["embedding"]["metrics"]["spearman_correlation"]
+        assert -1.0 <= correlation <= 1.0
+
+        samples = [
+            json.loads(line)
+            for line in (tmp_path / "samples_stsb.jsonl")
+            .read_text()
+            .strip()
+            .split("\n")
+        ]
+        assert len(samples) == 10
+        assert samples[0]["sample_id"] == 0
+        assert "|||" in samples[0]["prompt"]
 
 
 class TestCLI:

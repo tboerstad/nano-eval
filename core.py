@@ -35,9 +35,11 @@ from typing_extensions import NotRequired, TypedDict
 logger = logging.getLogger(__name__)
 
 
-class Metrics(TypedDict):
+class Metrics(TypedDict, total=False):
     exact_match: float
     exact_match_stderr: float
+    spearman_correlation: float
+    spearman_correlation_stderr: float
 
 
 class LoggedSample(TypedDict):
@@ -73,7 +75,15 @@ class VisionPrompt:
     images: list[Any]
 
 
-Input = TextPrompt | VisionPrompt
+@dataclass(frozen=True)
+class EmbeddingPrompt:
+    """Pair of texts for embedding similarity evaluation."""
+
+    sentence1: str
+    sentence2: str
+
+
+Input = TextPrompt | VisionPrompt | EmbeddingPrompt
 
 
 @dataclass
@@ -147,10 +157,13 @@ async def complete(
         for prompt in prompts:
             if isinstance(prompt, VisionPrompt):
                 messages = _build_vision_message(prompt.text, prompt.images)
-            elif isinstance(prompt.text, list):
-                messages = prompt.text
+            elif isinstance(prompt, TextPrompt):
+                if isinstance(prompt.text, list):
+                    messages = prompt.text
+                else:
+                    messages = [{"role": "user", "content": prompt.text}]
             else:
-                messages = [{"role": "user", "content": prompt.text}]
+                raise TypeError(f"Unsupported prompt type: {type(prompt).__name__}")
 
             payload: dict[str, Any] = {
                 "model": config.model,
@@ -173,6 +186,131 @@ async def complete(
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             raise
+
+
+def _cosine_similarity(a: list[float], b: list[float]) -> float:
+    """Compute cosine similarity between two vectors."""
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(x * x for x in b))
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
+
+def _spearman_correlation(x: list[float], y: list[float]) -> float:
+    """Compute Spearman rank correlation coefficient."""
+    n = len(x)
+    if n < 2:
+        return 0.0
+
+    def rank(values: list[float]) -> list[float]:
+        sorted_indices = sorted(range(n), key=lambda i: values[i])
+        ranks = [0.0] * n
+        for rank_val, idx in enumerate(sorted_indices):
+            ranks[idx] = float(rank_val + 1)
+        return ranks
+
+    rank_x = rank(x)
+    rank_y = rank(y)
+
+    mean_x = sum(rank_x) / n
+    mean_y = sum(rank_y) / n
+
+    num = sum((rx - mean_x) * (ry - mean_y) for rx, ry in zip(rank_x, rank_y))
+    den_x = math.sqrt(sum((rx - mean_x) ** 2 for rx in rank_x))
+    den_y = math.sqrt(sum((ry - mean_y) ** 2 for ry in rank_y))
+
+    if den_x == 0 or den_y == 0:
+        return 0.0
+    return num / (den_x * den_y)
+
+
+def _spearman_stderr(r: float, n: int) -> float:
+    """Compute standard error for Spearman correlation using Fisher z-transform."""
+    if n < 4:
+        return 0.0
+    z = 0.5 * math.log((1 + r) / (1 - r)) if abs(r) < 1 else 0.0
+    se_z = 1.0 / math.sqrt(n - 3)
+    r_lower = math.tanh(z - 1.96 * se_z)
+    r_upper = math.tanh(z + 1.96 * se_z)
+    return (r_upper - r_lower) / (2 * 1.96)
+
+
+async def _embed_batch(
+    client: httpx.AsyncClient,
+    url: str,
+    texts: list[str],
+    model: str,
+) -> list[list[float]]:
+    """Embed a batch of texts. Returns list of embedding vectors."""
+    payload = {"model": model, "input": texts}
+    resp = await client.post(url, json=payload)
+    if not resp.is_success:
+        raise RuntimeError(f"Embedding request failed: {resp.text}")
+    data = resp.json()["data"]
+    sorted_data = sorted(data, key=lambda x: x["index"])
+    return [item["embedding"] for item in sorted_data]
+
+
+async def embed(
+    prompts: list[EmbeddingPrompt],
+    config: APIConfig,
+    progress_desc: str = "Running embedding eval",
+) -> list[float]:
+    """
+    Embed sentence pairs and compute cosine similarities.
+
+    Args:
+        prompts: List of EmbeddingPrompt (sentence pairs)
+        config: API configuration
+
+    Returns:
+        List of cosine similarities (one per pair)
+    """
+    headers = {"Content-Type": "application/json"}
+    if config.api_key:
+        headers["Authorization"] = f"Bearer {config.api_key}"
+
+    url = config.url.replace("/chat/completions", "/embeddings")
+
+    all_sentences: list[str] = []
+    for p in prompts:
+        all_sentences.append(p.sentence1)
+        all_sentences.append(p.sentence2)
+
+    async with httpx.AsyncClient(
+        limits=httpx.Limits(max_connections=config.max_concurrent),
+        timeout=httpx.Timeout(config.timeout),
+        headers=headers,
+        trust_env=True,
+    ) as client:
+        batch_size = 32
+        all_embeddings: list[list[float]] = []
+        tasks: list[asyncio.Task[list[list[float]]]] = []
+
+        for i in range(0, len(all_sentences), batch_size):
+            batch = all_sentences[i : i + batch_size]
+            tasks.append(
+                asyncio.create_task(_embed_batch(client, url, batch, config.model))
+            )
+
+        try:
+            batches = await tqdm_asyncio.gather(*tasks, desc=progress_desc, leave=False)
+            for batch_result in batches:
+                all_embeddings.extend(batch_result)
+        except BaseException:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
+
+    similarities: list[float] = []
+    for i in range(0, len(all_embeddings), 2):
+        sim = _cosine_similarity(all_embeddings[i], all_embeddings[i + 1])
+        similarities.append(sim)
+
+    return similarities
 
 
 def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
@@ -220,9 +358,11 @@ def _normalize(text: str) -> str:
 
 
 def _prompt_to_str(prompt: Input) -> str:
-    """Extract text from prompt (handles TextPrompt and VisionPrompt)."""
+    """Extract text from prompt (handles TextPrompt, VisionPrompt, EmbeddingPrompt)."""
     if isinstance(prompt, VisionPrompt):
         return prompt.text
+    if isinstance(prompt, EmbeddingPrompt):
+        return f"{prompt.sentence1} ||| {prompt.sentence2}"
     if isinstance(prompt.text, list):
         return "\n".join(f"{m['role']}: {m['content']}" for m in prompt.text)
     return prompt.text
@@ -267,6 +407,44 @@ async def run_task(
         f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
     )
     t0 = time.perf_counter()
+
+    if task.task_type == "embedding":
+        embedding_prompts = [p for p in prompts if isinstance(p, EmbeddingPrompt)]
+        similarities = await embed(embedding_prompts, config, "Running embedding eval")
+        responses = [f"{sim:.6f}" for sim in similarities]
+        elapsed = time.perf_counter() - t0
+
+        targets = [float(s.target) for s in samples]
+        correlation = _spearman_correlation(similarities, targets)
+        stderr = _spearman_stderr(correlation, len(samples))
+        scores = [task.score(r, s.target) for r, s in zip(responses, samples)]
+
+        logger.debug(
+            f"{task.name}: spearman={correlation:.4f}±{stderr:.4f} ({elapsed:.2f}s)"
+        )
+
+        logged_samples: list[LoggedSample] = [
+            LoggedSample(
+                sample_id=i,
+                target=s.target,
+                prompt=_prompt_to_str(s.prompt),
+                response=r,
+                exact_match=score,
+            )
+            for i, (s, r, score) in enumerate(zip(samples, responses, scores))
+        ]
+        return TaskResult(
+            elapsed_seconds=round(elapsed, 2),
+            metrics=Metrics(
+                spearman_correlation=correlation, spearman_correlation_stderr=stderr
+            ),
+            num_samples=len(samples),
+            samples=logged_samples,
+            samples_hash=samples_hash,
+            task=task.name,
+            task_type=task.task_type,
+        )
+
     desc = "Running vision eval" if task.task_type == "vision" else "Running text eval"
     responses = await complete(prompts, config, desc)
     elapsed = time.perf_counter() - t0
@@ -278,8 +456,7 @@ async def run_task(
 
     logger.debug(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
 
-    # Always collect per-sample data for optional JSONL export (negligible overhead)
-    logged_samples: list[LoggedSample] = [
+    logged_samples = [
         LoggedSample(
             sample_id=i,
             target=s.target,

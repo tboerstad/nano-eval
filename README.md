@@ -3,13 +3,14 @@
 ## Quickstart
 
 ```bash
-uvx nano-eval -t text -t vision --max-samples 100
+uvx nano-eval -t text -t vision -t embedding --max-samples 100
 
 # prints:
-Task    Accuracy  Samples  Duration
-------  --------  -------  --------
-text      84.3%      100       45s
-vision    71.8%      100       38s
+Task       Metric    Samples  Duration
+---------  --------  -------  --------
+text         84.3%      100       45s
+vision       71.8%      100       38s
+embedding    0.842      100        8s
 ```
 
 > **Note:** This tool is for eyeballing the accuracy of a model. One use case is comparing accuracy between inference frameworks (e.g., vLLM vs SGLang vs MAX running the same model).
@@ -20,6 +21,7 @@ vision    71.8%      100       38s
 |------|---------|-------------|
 | `text` | gsm8k_cot_llama | Grade school math with chain-of-thought (8-shot) |
 | `vision` | HuggingFaceM4/ChartQA | Chart question answering with images |
+| `embedding` | sentence-transformers/stsb | Semantic textual similarity (Spearman correlation) |
 
 ## Usage
 
@@ -32,7 +34,8 @@ Usage: nano-eval [OPTIONS]
   Example: nano-eval -t text
 
 Options:
-  -t, --type [text|vision]        Type to evaluate (can be repeated)
+  -t, --type [text|vision|embedding]
+                                  Type to evaluate (can be repeated)
                                   [required]
   --base-url TEXT                 OpenAI-compatible API endpoint; tries
                                   127.0.0.1:8000/8080 if omitted
