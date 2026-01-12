@@ -274,10 +274,7 @@ async def embed(
 
     url = config.url.replace("/chat/completions", "/embeddings")
 
-    all_sentences: list[str] = []
-    for p in prompts:
-        all_sentences.append(p.sentence1)
-        all_sentences.append(p.sentence2)
+    all_sentences = [s for p in prompts for s in (p.sentence1, p.sentence2)]
 
     async with httpx.AsyncClient(
         limits=httpx.Limits(max_connections=config.max_concurrent),
@@ -305,12 +302,10 @@ async def embed(
             await asyncio.gather(*tasks, return_exceptions=True)
             raise
 
-    similarities: list[float] = []
-    for i in range(0, len(all_embeddings), 2):
-        sim = _cosine_similarity(all_embeddings[i], all_embeddings[i + 1])
-        similarities.append(sim)
-
-    return similarities
+    return [
+        _cosine_similarity(all_embeddings[i], all_embeddings[i + 1])
+        for i in range(0, len(all_embeddings), 2)
+    ]
 
 
 def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
@@ -410,6 +405,7 @@ async def run_task(
 
     if task.task_type == "embedding":
         embedding_prompts = [p for p in prompts if isinstance(p, EmbeddingPrompt)]
+        assert len(embedding_prompts) == len(prompts), "Expected all EmbeddingPrompt"
         similarities = await embed(embedding_prompts, config, "Running embedding eval")
         responses = [f"{sim:.6f}" for sim in similarities]
         elapsed = time.perf_counter() - t0
