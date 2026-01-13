@@ -3,7 +3,7 @@ ChartQA evaluation - multimodal chart understanding.
 
 Defines:
 - samples(): generator yielding ((prompt, images), target) pairs
-- _relaxed_match(): scoring with 5% numeric tolerance
+- score(): relaxed matching with 5% numeric tolerance
 - chartqa: Task instance for registration
 """
 
@@ -36,8 +36,8 @@ def _format_chartqa_prompt(query: str) -> str:
     )
 
 
-def _relaxed_match(response: str, target: str) -> float:
-    """ChartQA metric: exact match or 5% numeric tolerance."""
+def score(response: str, target: str) -> float:
+    """ChartQA relaxed match: exact match or 5% numeric tolerance."""
     if match := _FINAL_ANSWER_RE.search(response):
         pred = match.group(1).strip()
     else:
@@ -112,5 +112,5 @@ chartqa = Task(
     name="chartqa",
     task_type="vision",
     samples=samples,
-    score=_relaxed_match,
+    score=score,
 )
