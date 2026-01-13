@@ -15,7 +15,10 @@ from httpx import Response
 
 from core import Task
 from nano_eval import main
-from tasks.chartqa import samples as load_chartqa_samples, score as chartqa_score
+from tasks.chartqa import (
+    _relaxed_match as chartqa_score,
+    samples as load_chartqa_samples,
+)
 from tasks.gsm8k import samples as load_gsm8k_samples, score as gsm8k_score
 
 # GSM8K: 10 mock responses keyed by prompt hash (7 correct, 3 wrong = 70% accuracy)
