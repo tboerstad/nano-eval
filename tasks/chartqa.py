@@ -36,8 +36,8 @@ def _format_chartqa_prompt(query: str) -> str:
     )
 
 
-def _relaxed_match(response: str, target: str) -> float:
-    """ChartQA metric: exact match or 5% numeric tolerance."""
+def score(response: str, target: str) -> float:
+    """ChartQA relaxed match: exact match or 5% numeric tolerance."""
     if match := _FINAL_ANSWER_RE.search(response):
         pred = match.group(1).strip()
     else:
@@ -106,11 +106,6 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
             if max_samples is not None:
                 remaining = max_samples - len(result)
         return result
-
-
-def score(response: str, target: str) -> float:
-    """Score ChartQA response with relaxed matching (5% numeric tolerance)."""
-    return _relaxed_match(response, target)
 
 
 chartqa = Task(
