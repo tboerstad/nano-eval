@@ -6,10 +6,10 @@
 uvx nano-eval -t text -t vision --max-samples 100
 
 # prints:
-Task    Accuracy  Samples  Duration
-------  --------  -------  --------
-text      84.3%      100       45s
-vision    71.8%      100       38s
+Task    Accuracy  Samples  Duration  Output Tokens
+------  --------  -------  --------  -------------
+text      84.3%      100       45s          12340
+vision    71.8%      100       38s           8920
 ```
 
 > **Note:** This tool is for eyeballing the accuracy of a model. One use case is comparing accuracy between inference frameworks (e.g., vLLM vs SGLang vs MAX running the same model).
@@ -91,7 +91,8 @@ When using `--output-path`, a `results.json` file is generated:
       "num_samples": 37,
       "samples_hash": "12a1e9404db6afe810290a474d69cfebdaffefd0b56e48ac80e1fec0f286d659",
       "task": "gsm8k_cot_llama",
-      "task_type": "text"
+      "task_type": "text",
+      "total_output_tokens": 5765
     }
   },
   "total_seconds": 28.45

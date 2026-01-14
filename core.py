@@ -40,12 +40,21 @@ class Metrics(TypedDict):
     exact_match_stderr: float
 
 
+class ApiResponse(TypedDict):
+    answer: str
+    stop_reason: str
+    input_tokens: int
+    output_tokens: int
+
+
 class LoggedSample(TypedDict):
     sample_id: int
     target: str
     prompt: str
     response: str
     exact_match: float
+    stop_reason: str
+    output_tokens: int
 
 
 class TaskResult(TypedDict):
@@ -56,6 +65,7 @@ class TaskResult(TypedDict):
     samples_hash: str
     task: str
     task_type: str
+    total_output_tokens: int
 
 
 @dataclass(frozen=True)
@@ -110,11 +120,17 @@ async def _request(
     client: httpx.AsyncClient,
     url: str,
     payload: dict[str, Any],
-) -> str:
+) -> ApiResponse:
     """Single request. Raises RuntimeError on failure."""
     resp = await client.post(url, json=payload)
     if resp.is_success:
-        return resp.json()["choices"][0]["message"]["content"]
+        data = resp.json()
+        return ApiResponse(
+            answer=data["choices"][0]["message"]["content"],
+            stop_reason=data["choices"][0]["finish_reason"],
+            input_tokens=data["usage"]["prompt_tokens"],
+            output_tokens=data["usage"]["completion_tokens"],
+        )
     raise RuntimeError(f"Request failed: {resp.text}")
 
 
@@ -122,16 +138,13 @@ async def complete(
     prompts: list[Input],
     config: APIConfig,
     progress_desc: str = "Running evals",
-) -> list[str]:
+) -> list[ApiResponse]:
     """
     Run batch of chat completions.
 
     Args:
         prompts: List of prompts (TextPrompt or VisionPrompt)
         config: API configuration (includes gen_kwargs for temperature, max_tokens, etc.)
-
-    Returns:
-        List of response strings
     """
     headers = {"Content-Type": "application/json"}
     if config.api_key:
@@ -143,7 +156,7 @@ async def complete(
         headers=headers,
         trust_env=True,
     ) as client:
-        tasks: list[asyncio.Task[str]] = []
+        tasks: list[asyncio.Task[ApiResponse]] = []
         for prompt in prompts:
             if isinstance(prompt, VisionPrompt):
                 messages = _build_vision_message(prompt.text, prompt.images)
@@ -271,7 +284,7 @@ async def run_task(
     responses = await complete(prompts, config, desc)
     elapsed = time.perf_counter() - t0
 
-    scores = [task.score(r, s.target) for r, s in zip(responses, samples)]
+    scores = [task.score(r["answer"], s.target) for r, s in zip(responses, samples)]
     n = len(samples)
     accuracy = sum(scores) / n if n else 0.0
     stderr = math.sqrt(accuracy * (1 - accuracy) / (n - 1)) if n > 1 else 0.0
@@ -284,8 +297,10 @@ async def run_task(
             sample_id=i,
             target=s.target,
             prompt=_prompt_to_str(s.prompt),
-            response=r,
+            response=r["answer"],
             exact_match=score,
+            stop_reason=r["stop_reason"],
+            output_tokens=r["output_tokens"],
         )
         for i, (s, r, score) in enumerate(zip(samples, responses, scores))
     ]
@@ -297,6 +312,7 @@ async def run_task(
         samples_hash=samples_hash,
         task=task.name,
         task_type=task.task_type,
+        total_output_tokens=sum(r["output_tokens"] for r in responses),
     )
 
 
