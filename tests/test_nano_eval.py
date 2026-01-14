@@ -75,7 +75,19 @@ class TestE2E:
             if h not in GSM8K_RESPONSES:
                 raise ValueError(f"Unknown prompt hash: {h}")
             content = GSM8K_RESPONSES[h]
-            return Response(200, json={"choices": [{"message": {"content": content}}]})
+            return Response(
+                200,
+                json={
+                    "choices": [
+                        {"message": {"content": content}, "finish_reason": "stop"}
+                    ],
+                    "usage": {
+                        "prompt_tokens": 10,
+                        "completion_tokens": 5,
+                        "total_tokens": 15,
+                    },
+                },
+            )
 
         task = Task(
             name="gsm8k_cot_llama",
@@ -128,6 +140,8 @@ class TestE2E:
         assert samples[0]["target"] == "18"
         assert samples[0]["response"] == "The final answer is 18"
         assert samples[0]["exact_match"] == 1.0
+        assert samples[0]["stop_reason"] == "stop"
+        assert samples[0]["output_tokens"] == 5
         assert samples[3]["target"] == "540"
         assert samples[3]["exact_match"] == 0.0
 
@@ -144,7 +158,19 @@ class TestE2E:
             if h not in CHARTQA_RESPONSES:
                 raise ValueError(f"Unknown prompt hash: {h}")
             content = CHARTQA_RESPONSES[h]
-            return Response(200, json={"choices": [{"message": {"content": content}}]})
+            return Response(
+                200,
+                json={
+                    "choices": [
+                        {"message": {"content": content}, "finish_reason": "stop"}
+                    ],
+                    "usage": {
+                        "prompt_tokens": 100,
+                        "completion_tokens": 10,
+                        "total_tokens": 110,
+                    },
+                },
+            )
 
         task = Task(
             name="chartqa",
@@ -193,6 +219,8 @@ class TestE2E:
         assert samples[0]["target"] == "14"
         assert samples[0]["response"] == "FINAL ANSWER: 14"
         assert samples[0]["exact_match"] == 1.0
+        assert samples[0]["stop_reason"] == "stop"
+        assert samples[0]["output_tokens"] == 10
         assert samples[4]["target"] == "23"
         assert samples[4]["exact_match"] == 0.0
 
