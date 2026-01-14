@@ -183,6 +183,7 @@ async def evaluate(
             samples_hash=result["samples_hash"],
             task=result["task"],
             task_type=result["task_type"],
+            timing=result["timing"],
             total_output_tokens=result["total_output_tokens"],
         )
         total_seconds += result["elapsed_seconds"]
@@ -205,11 +206,17 @@ async def evaluate(
 
 def _print_results_table(result: EvalResult) -> None:
     """Print a mini results table."""
-    print("\nTask    Accuracy  Samples  Duration  Output Tokens")
-    print("------  --------  -------  --------  -------------")
+    print(
+        "\nTask    Accuracy  Samples  Duration  Output Tokens  TTFT (p50)  TPOT (p50)"
+    )
+    print("------  --------  -------  --------  -------------  ----------  ----------")
     for r in result["results"].values():
+        timing = r["timing"]
         print(
-            f"{r['task_type']:<6}  {r['metrics']['exact_match']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}"
+            f"{r['task_type']:<6}  {r['metrics']['exact_match']:>7.1%}  "
+            f"{r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  "
+            f"{r['total_output_tokens']:>13}  {timing['p50_ttft_ms']:>8.1f}ms  "
+            f"{timing['p50_tpot_ms']:>8.1f}ms"
         )
 
 
