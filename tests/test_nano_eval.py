@@ -18,6 +18,24 @@ from nano_eval import main
 from tasks.chartqa import samples as load_chartqa_samples, score as chartqa_score
 from tasks.gsm8k import samples as load_gsm8k_samples, score as gsm8k_score
 
+
+def make_streaming_response(
+    content: str, prompt_tokens: int = 10, completion_tokens: int = 5
+) -> Response:
+    """Create a streaming SSE response for testing."""
+    lines = []
+    # First chunk with content
+    lines.append(
+        f'data: {{"choices": [{{"index": 0, "delta": {{"content": {json.dumps(content)}}}, "finish_reason": null}}]}}'
+    )
+    # Final chunk with finish_reason and usage
+    lines.append(
+        f'data: {{"choices": [{{"index": 0, "delta": {{}}, "finish_reason": "stop"}}], "usage": {{"prompt_tokens": {prompt_tokens}, "completion_tokens": {completion_tokens}}}}}'
+    )
+    lines.append("data: [DONE]")
+    return Response(200, text="\n".join(lines))
+
+
 # GSM8K: 10 mock responses keyed by prompt hash (7 correct, 3 wrong = 70% accuracy)
 # Hashes are for the last user message (the question) in multiturn fewshot format
 # fmt: off
@@ -68,6 +86,8 @@ class TestE2E:
             assert body["temperature"] == 0
             assert body["max_tokens"] == 256
             assert body["seed"] == 42
+            assert body["stream"] is True
+            assert body["stream_options"]["include_usage"] is True
             # Extract last user message for multiturn fewshot format
             last_user_msg = [m for m in body["messages"] if m["role"] == "user"][-1]
             prompt = last_user_msg["content"]
@@ -75,18 +95,8 @@ class TestE2E:
             if h not in GSM8K_RESPONSES:
                 raise ValueError(f"Unknown prompt hash: {h}")
             content = GSM8K_RESPONSES[h]
-            return Response(
-                200,
-                json={
-                    "choices": [
-                        {"message": {"content": content}, "finish_reason": "stop"}
-                    ],
-                    "usage": {
-                        "prompt_tokens": 10,
-                        "completion_tokens": 5,
-                        "total_tokens": 15,
-                    },
-                },
+            return make_streaming_response(
+                content, prompt_tokens=10, completion_tokens=5
             )
 
         task = Task(
@@ -142,8 +152,18 @@ class TestE2E:
         assert samples[0]["exact_match"] == 1.0
         assert samples[0]["stop_reason"] == "stop"
         assert samples[0]["output_tokens"] == 5
+        assert "ttft_ms" in samples[0]
+        assert "tpot_ms" in samples[0]
         assert samples[3]["target"] == "540"
         assert samples[3]["exact_match"] == 0.0
+
+        # Verify timing metrics are present
+        timing = results["results"]["text"]["timing"]
+        assert "mean_ttft_ms" in timing
+        assert "p50_ttft_ms" in timing
+        assert "p90_ttft_ms" in timing
+        assert "p99_ttft_ms" in timing
+        assert "mean_tpot_ms" in timing
 
     def test_chartqa_evaluation(self, tmp_path):
         """ChartQA evaluation with real dataset, mocked API."""
@@ -151,6 +171,8 @@ class TestE2E:
 
         def api_response(request):
             body = json.loads(request.content)
+            assert body["stream"] is True
+            assert body["stream_options"]["include_usage"] is True
             # Extract text from vision message content array
             content_list = body["messages"][0]["content"]
             prompt = next(c["text"] for c in content_list if c["type"] == "text")
@@ -158,18 +180,8 @@ class TestE2E:
             if h not in CHARTQA_RESPONSES:
                 raise ValueError(f"Unknown prompt hash: {h}")
             content = CHARTQA_RESPONSES[h]
-            return Response(
-                200,
-                json={
-                    "choices": [
-                        {"message": {"content": content}, "finish_reason": "stop"}
-                    ],
-                    "usage": {
-                        "prompt_tokens": 100,
-                        "completion_tokens": 10,
-                        "total_tokens": 110,
-                    },
-                },
+            return make_streaming_response(
+                content, prompt_tokens=100, completion_tokens=10
             )
 
         task = Task(
@@ -221,8 +233,18 @@ class TestE2E:
         assert samples[0]["exact_match"] == 1.0
         assert samples[0]["stop_reason"] == "stop"
         assert samples[0]["output_tokens"] == 10
+        assert "ttft_ms" in samples[0]
+        assert "tpot_ms" in samples[0]
         assert samples[4]["target"] == "23"
         assert samples[4]["exact_match"] == 0.0
+
+        # Verify timing metrics are present
+        timing = results["results"]["vision"]["timing"]
+        assert "mean_ttft_ms" in timing
+        assert "p50_ttft_ms" in timing
+        assert "p90_ttft_ms" in timing
+        assert "p99_ttft_ms" in timing
+        assert "mean_tpot_ms" in timing
 
 
 class TestCLI:

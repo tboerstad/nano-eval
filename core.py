@@ -15,9 +15,11 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import json
 import logging
 import math
 import re
+import statistics
 import time
 from collections.abc import Callable
 from contextlib import contextmanager
@@ -45,6 +47,8 @@ class ApiResponse(TypedDict):
     stop_reason: str
     input_tokens: int
     output_tokens: int
+    ttft_ms: float  # Time to first token (milliseconds)
+    tpot_ms: float  # Time per output token (milliseconds)
 
 
 class LoggedSample(TypedDict):
@@ -55,6 +59,19 @@ class LoggedSample(TypedDict):
     exact_match: float
     stop_reason: str
     output_tokens: int
+    ttft_ms: float
+    tpot_ms: float
+
+
+class TimingMetrics(TypedDict):
+    mean_ttft_ms: float
+    p50_ttft_ms: float
+    p90_ttft_ms: float
+    p99_ttft_ms: float
+    mean_tpot_ms: float
+    p50_tpot_ms: float
+    p90_tpot_ms: float
+    p99_tpot_ms: float
 
 
 class TaskResult(TypedDict):
@@ -65,6 +82,7 @@ class TaskResult(TypedDict):
     samples_hash: str
     task: str
     task_type: str
+    timing: TimingMetrics
     total_output_tokens: int
 
 
@@ -121,17 +139,81 @@ async def _request(
     url: str,
     payload: dict[str, Any],
 ) -> ApiResponse:
-    """Single request. Raises RuntimeError on failure."""
-    resp = await client.post(url, json=payload)
-    if resp.is_success:
-        data = resp.json()
-        return ApiResponse(
-            answer=data["choices"][0]["message"]["content"],
-            stop_reason=data["choices"][0]["finish_reason"],
-            input_tokens=data["usage"]["prompt_tokens"],
-            output_tokens=data["usage"]["completion_tokens"],
-        )
-    raise RuntimeError(f"Request failed: {resp.text}")
+    """Single streaming request with timing metrics. Raises RuntimeError on failure."""
+    # Enable streaming with usage in final chunk
+    payload = {
+        **payload,
+        "stream": True,
+        "stream_options": {"include_usage": True},
+    }
+
+    chunks: list[str] = []
+    stop_reason: str | None = None
+    input_tokens = 0
+    output_tokens = 0
+    ttft_ms = 0.0
+    first_token_time: float | None = None
+    last_token_time: float | None = None
+    token_count = 0
+
+    t0 = time.perf_counter()
+
+    async with client.stream("POST", url, json=payload) as resp:
+        if not resp.is_success:
+            await resp.aread()
+            raise RuntimeError(f"Request failed: {resp.text}")
+
+        async for line in resp.aiter_lines():
+            if not line.startswith("data: "):
+                continue
+            data_str = line[6:]  # Remove "data: " prefix
+            if data_str == "[DONE]":
+                break
+
+            try:
+                data = json.loads(data_str)
+            except json.JSONDecodeError:
+                continue
+
+            # Extract usage from final chunk (when include_usage is set)
+            if usage := data.get("usage"):
+                input_tokens = usage.get("prompt_tokens", 0)
+                output_tokens = usage.get("completion_tokens", 0)
+
+            choices = data.get("choices", [])
+            if not choices:
+                continue
+
+            choice = choices[0]
+            delta = choice.get("delta", {})
+            content = delta.get("content")
+
+            if choice.get("finish_reason"):
+                stop_reason = choice["finish_reason"]
+
+            if content:
+                now = time.perf_counter()
+                if first_token_time is None:
+                    first_token_time = now
+                    ttft_ms = (first_token_time - t0) * 1000
+                last_token_time = now
+                token_count += 1
+                chunks.append(content)
+
+    # Calculate TPOT (time per output token) excluding first token
+    tpot_ms = 0.0
+    if token_count > 1 and first_token_time is not None and last_token_time is not None:
+        generation_time_ms = (last_token_time - first_token_time) * 1000
+        tpot_ms = generation_time_ms / (token_count - 1)
+
+    return ApiResponse(
+        answer="".join(chunks),
+        stop_reason=stop_reason or "unknown",
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        ttft_ms=round(ttft_ms, 2),
+        tpot_ms=round(tpot_ms, 2),
+    )
 
 
 async def complete(
@@ -253,6 +335,37 @@ def compute_samples_hash(samples: list[Sample]) -> str:
     return hasher.hexdigest()
 
 
+def _compute_timing_metrics(responses: list[ApiResponse]) -> TimingMetrics:
+    """Compute aggregated timing metrics from response data."""
+    ttfts = [r["ttft_ms"] for r in responses]
+    tpots = [r["tpot_ms"] for r in responses if r["tpot_ms"] > 0]
+
+    def percentile(data: list[float], p: float) -> float:
+        if not data:
+            return 0.0
+        if len(data) == 1:
+            return data[0]
+        sorted_data = sorted(data)
+        idx = (len(sorted_data) - 1) * p
+        lower = int(idx)
+        upper = lower + 1
+        if upper >= len(sorted_data):
+            return sorted_data[-1]
+        weight = idx - lower
+        return sorted_data[lower] * (1 - weight) + sorted_data[upper] * weight
+
+    return TimingMetrics(
+        mean_ttft_ms=round(statistics.mean(ttfts) if ttfts else 0.0, 2),
+        p50_ttft_ms=round(percentile(ttfts, 0.5), 2),
+        p90_ttft_ms=round(percentile(ttfts, 0.9), 2),
+        p99_ttft_ms=round(percentile(ttfts, 0.99), 2),
+        mean_tpot_ms=round(statistics.mean(tpots) if tpots else 0.0, 2),
+        p50_tpot_ms=round(percentile(tpots, 0.5), 2),
+        p90_tpot_ms=round(percentile(tpots, 0.9), 2),
+        p99_tpot_ms=round(percentile(tpots, 0.99), 2),
+    )
+
+
 async def run_task(
     task: Task,
     config: APIConfig,
@@ -301,9 +414,14 @@ async def run_task(
             exact_match=score,
             stop_reason=r["stop_reason"],
             output_tokens=r["output_tokens"],
+            ttft_ms=r["ttft_ms"],
+            tpot_ms=r["tpot_ms"],
         )
         for i, (s, r, score) in enumerate(zip(samples, responses, scores))
     ]
+
+    timing = _compute_timing_metrics(responses)
+
     return TaskResult(
         elapsed_seconds=round(elapsed, 2),
         metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
@@ -312,6 +430,7 @@ async def run_task(
         samples_hash=samples_hash,
         task=task.name,
         task_type=task.task_type,
+        timing=timing,
         total_output_tokens=sum(r["output_tokens"] for r in responses),
     )
 
