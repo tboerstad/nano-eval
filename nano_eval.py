@@ -273,9 +273,19 @@ def main(
 
     Example: nano-eval -t text
     """
+
+    class LevelPrefixFormatter(logging.Formatter):
+        def format(self, record):
+            if record.levelno >= logging.WARNING:
+                return f"{record.levelname}: {record.getMessage()}"
+            return record.getMessage()
+
     log_level = logging.DEBUG if verbose >= 2 else logging.INFO
     log_format = "%(message)s" if verbose < 1 else logging.BASIC_FORMAT
-    logging.basicConfig(level=log_level, format=log_format)
+    formatter = LevelPrefixFormatter() if verbose < 1 else logging.Formatter(log_format)
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    logging.basicConfig(level=log_level, handlers=[handler])
     if verbose < 1:
         logging.getLogger("httpx").setLevel(logging.WARNING)
 
