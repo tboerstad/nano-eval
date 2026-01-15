@@ -142,6 +142,8 @@ class TestE2E:
         assert samples[0]["exact_match"] == 1.0
         assert samples[0]["stop_reason"] == "stop"
         assert samples[0]["output_tokens"] == 5
+        assert "duration_seconds" in samples[0]
+        assert isinstance(samples[0]["duration_seconds"], float)
         assert samples[3]["target"] == "540"
         assert samples[3]["exact_match"] == 0.0
 
@@ -221,6 +223,8 @@ class TestE2E:
         assert samples[0]["exact_match"] == 1.0
         assert samples[0]["stop_reason"] == "stop"
         assert samples[0]["output_tokens"] == 10
+        assert "duration_seconds" in samples[0]
+        assert isinstance(samples[0]["duration_seconds"], float)
         assert samples[4]["target"] == "23"
         assert samples[4]["exact_match"] == 0.0
 

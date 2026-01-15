@@ -45,6 +45,7 @@ class ApiResponse(TypedDict):
     stop_reason: str
     input_tokens: int
     output_tokens: int
+    duration_seconds: float
 
 
 class LoggedSample(TypedDict):
@@ -55,6 +56,7 @@ class LoggedSample(TypedDict):
     exact_match: float
     stop_reason: str
     output_tokens: int
+    duration_seconds: float
 
 
 class TaskResult(TypedDict):
@@ -122,7 +124,9 @@ async def _request(
     payload: dict[str, Any],
 ) -> ApiResponse:
     """Single request. Raises RuntimeError on failure."""
+    t0 = time.perf_counter()
     resp = await client.post(url, json=payload)
+    duration = time.perf_counter() - t0
     if resp.is_success:
         data = resp.json()
         return ApiResponse(
@@ -130,6 +134,7 @@ async def _request(
             stop_reason=data["choices"][0]["finish_reason"],
             input_tokens=data["usage"]["prompt_tokens"],
             output_tokens=data["usage"]["completion_tokens"],
+            duration_seconds=round(duration, 3),
         )
     raise RuntimeError(f"Request failed: {resp.text}")
 
@@ -301,6 +306,7 @@ async def run_task(
             exact_match=score,
             stop_reason=r["stop_reason"],
             output_tokens=r["output_tokens"],
+            duration_seconds=r["duration_seconds"],
         )
         for i, (s, r, score) in enumerate(zip(samples, responses, scores))
     ]
