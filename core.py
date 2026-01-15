@@ -40,21 +40,16 @@ class Metrics(TypedDict):
     exact_match_stderr: float
 
 
-class ApiResponse(TypedDict):
-    answer: str
-    stop_reason: str
-    input_tokens: int
-    output_tokens: int
-    duration_seconds: float
+class SampleResult(TypedDict):
+    """Result of evaluating a single sample."""
 
-
-class LoggedSample(TypedDict):
     sample_id: int
     target: str
     prompt: str
     response: str
     exact_match: float
     stop_reason: str
+    input_tokens: int
     output_tokens: int
     duration_seconds: float
 
@@ -63,7 +58,7 @@ class TaskResult(TypedDict):
     elapsed_seconds: float
     metrics: Metrics
     num_samples: int
-    samples: NotRequired[list[LoggedSample]]
+    samples: NotRequired[list[SampleResult]]
     samples_hash: str
     task: str
     task_type: str
@@ -122,20 +117,20 @@ async def _request(
     client: httpx.AsyncClient,
     url: str,
     payload: dict[str, Any],
-) -> ApiResponse:
+) -> dict[str, Any]:
     """Single request. Raises RuntimeError on failure."""
     t0 = time.perf_counter()
     resp = await client.post(url, json=payload)
     duration = time.perf_counter() - t0
     if resp.is_success:
         data = resp.json()
-        return ApiResponse(
-            answer=data["choices"][0]["message"]["content"],
-            stop_reason=data["choices"][0]["finish_reason"],
-            input_tokens=data["usage"]["prompt_tokens"],
-            output_tokens=data["usage"]["completion_tokens"],
-            duration_seconds=round(duration, 3),
-        )
+        return {
+            "response": data["choices"][0]["message"]["content"],
+            "stop_reason": data["choices"][0]["finish_reason"],
+            "input_tokens": data["usage"]["prompt_tokens"],
+            "output_tokens": data["usage"]["completion_tokens"],
+            "duration_seconds": round(duration, 3),
+        }
     raise RuntimeError(f"Request failed: {resp.text}")
 
 
@@ -143,7 +138,7 @@ async def complete(
     prompts: list[Input],
     config: APIConfig,
     progress_desc: str = "Running evals",
-) -> list[ApiResponse]:
+) -> list[dict[str, Any]]:
     """
     Run batch of chat completions.
 
@@ -161,7 +156,7 @@ async def complete(
         headers=headers,
         trust_env=True,
     ) as client:
-        tasks: list[asyncio.Task[ApiResponse]] = []
+        tasks: list[asyncio.Task[dict[str, Any]]] = []
         for prompt in prompts:
             if isinstance(prompt, VisionPrompt):
                 messages = _build_vision_message(prompt.text, prompt.images)
@@ -289,7 +284,7 @@ async def run_task(
     responses = await complete(prompts, config, desc)
     elapsed = time.perf_counter() - t0
 
-    scores = [task.score(r["answer"], s.target) for r, s in zip(responses, samples)]
+    scores = [task.score(r["response"], s.target) for r, s in zip(responses, samples)]
     n = len(samples)
     accuracy = sum(scores) / n if n else 0.0
     stderr = math.sqrt(accuracy * (1 - accuracy) / (n - 1)) if n > 1 else 0.0
@@ -297,14 +292,15 @@ async def run_task(
     logger.debug(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
 
     # Always collect per-sample data for optional JSONL export (negligible overhead)
-    logged_samples: list[LoggedSample] = [
-        LoggedSample(
+    sample_results: list[SampleResult] = [
+        SampleResult(
             sample_id=i,
             target=s.target,
             prompt=_prompt_to_str(s.prompt),
-            response=r["answer"],
+            response=r["response"],
             exact_match=score,
             stop_reason=r["stop_reason"],
+            input_tokens=r["input_tokens"],
             output_tokens=r["output_tokens"],
             duration_seconds=r["duration_seconds"],
         )
@@ -314,7 +310,7 @@ async def run_task(
         elapsed_seconds=round(elapsed, 2),
         metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
         num_samples=n,
-        samples=logged_samples,
+        samples=sample_results,
         samples_hash=samples_hash,
         task=task.name,
         task_type=task.task_type,

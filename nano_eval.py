@@ -19,7 +19,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from core import LoggedSample, TaskResult
+    from core import SampleResult, TaskResult
 
 __all__ = ["evaluate", "EvalResult"]
 
@@ -94,7 +94,7 @@ def _list_models(base_url: str, api_key: str = "") -> list[str]:
     return [model["id"] for model in resp.json().get("data", [])]
 
 
-def _write_samples_jsonl(filepath: Path, samples: list[LoggedSample]) -> None:
+def _write_samples_jsonl(filepath: Path, samples: list[SampleResult]) -> None:
     """Write per-sample results to JSONL file."""
     with open(filepath, "w") as f:
         for sample in samples:
