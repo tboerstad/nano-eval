@@ -25,10 +25,10 @@ If hooks fail:
 Run checks without committing:
 
 ```bash
-uv run ruff check . --fix
-uv run ruff format .
-uv run ty check
-uv run pytest
+ruff check . --fix
+ruff format .
+ty check
+pytest
 ```
 
 ## Environment Variables
