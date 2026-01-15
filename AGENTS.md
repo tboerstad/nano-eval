@@ -5,7 +5,7 @@
 `.venv` is gitignored and DOES NOT EXIST in fresh sessions. Create it before making any changes:
 
 ```bash
-python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]" && pre-commit install
+uv venv && source .venv/bin/activate && uv pip install -e ".[dev]" && pre-commit install
 ```
 
 ## Workflow
@@ -25,10 +25,10 @@ If hooks fail:
 Run checks without committing:
 
 ```bash
-ruff check . --fix
-ruff format .
-ty check
-pytest
+uv run ruff check . --fix
+uv run ruff format .
+uv run ty check
+uv run pytest
 ```
 
 ## Environment Variables
