@@ -274,7 +274,7 @@ def main(
     Example: nano-eval -t text
     """
 
-    class _LevelPrefixFormatter(logging.Formatter):
+    class _Fmt(logging.Formatter):
         def format(self, record: logging.LogRecord) -> str:
             msg = super().format(record)
             return (
@@ -287,7 +287,7 @@ def main(
     log_format = "%(message)s" if verbose < 1 else logging.BASIC_FORMAT
     logging.basicConfig(level=log_level, format=log_format)
     if verbose < 1:
-        logging.getLogger().handlers[0].setFormatter(_LevelPrefixFormatter(log_format))
+        logging.getLogger().handlers[0].setFormatter(_Fmt(log_format))
         logging.getLogger("httpx").setLevel(logging.WARNING)
 
     result = asyncio.run(
