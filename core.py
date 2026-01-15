@@ -17,8 +17,10 @@ import base64
 import hashlib
 import logging
 import math
+import pprint
 import re
 import time
+from collections import Counter
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -288,6 +290,15 @@ async def run_task(
     desc = "Running vision eval" if task.task_type == "vision" else "Running text eval"
     responses = await complete(prompts, config, desc)
     elapsed = time.perf_counter() - t0
+
+    # Log warning if any responses did not complete with "stop"
+    reason_counts = Counter(r["stop_reason"] for r in responses)
+    non_stop_count = sum(c for reason, c in reason_counts.items() if reason != "stop")
+    if non_stop_count > 0:
+        logger.warning(
+            f"{non_stop_count} response(s) did not finish with 'stop'. "
+            f"Completion reasons:\n{pprint.pformat(dict(reason_counts))}"
+        )
 
     scores = [task.score(r["answer"], s.target) for r, s in zip(responses, samples)]
     n = len(samples)
