@@ -5,12 +5,12 @@
 `.venv` is gitignored and DOES NOT EXIST in fresh sessions. Create it before making any changes:
 
 ```bash
-python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]" && pre-commit install
+python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]" && prek install
 ```
 
 ## Workflow
 
-Pre-commit hooks run automatically on `git commit`:
+Hooks run automatically on `git commit`:
 
 - **ruff**: Linting and formatting (auto-fixes where possible)
 - **ty**: Type checking
