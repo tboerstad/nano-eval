@@ -5,7 +5,7 @@
 `.venv` is gitignored and DOES NOT EXIST in fresh sessions. Create it before making any changes:
 
 ```bash
-python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]" && prek install
+uv venv && source .venv/bin/activate && uv pip install -e ".[dev]" && prek install
 ```
 
 ## Workflow
