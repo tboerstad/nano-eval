@@ -83,7 +83,7 @@ When using `--output-path`, a `results.json` file is generated:
   "framework_version": "0.2.1",
   "results": {
     "text": {
-      "elapsed_seconds": 28.45,
+      "duration_seconds": 28.45,
       "metrics": {
         "exact_match": 0.7837837837837838,
         "exact_match_stderr": 0.06861056852129647

@@ -177,7 +177,7 @@ async def evaluate(
             _write_samples_jsonl(samples_file, result["samples"])
             logger.info(f"`{type_name.title()}` sample log written to: {samples_file}")
         results[type_name] = TaskResult(
-            elapsed_seconds=result["elapsed_seconds"],
+            duration_seconds=result["duration_seconds"],
             metrics=result["metrics"],
             num_samples=result["num_samples"],
             samples_hash=result["samples_hash"],
@@ -185,7 +185,7 @@ async def evaluate(
             task_type=result["task_type"],
             total_output_tokens=result["total_output_tokens"],
         )
-        total_seconds += result["elapsed_seconds"]
+        total_seconds += result["duration_seconds"]
 
     eval_result: EvalResult = {
         "config": {"max_samples": max_samples, "model": config.model},
@@ -209,7 +209,7 @@ def _print_results_table(result: EvalResult) -> None:
     print("------  --------  -------  --------  -------------")
     for r in result["results"].values():
         print(
-            f"{r['task_type']:<6}  {r['metrics']['exact_match']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}"
+            f"{r['task_type']:<6}  {r['metrics']['exact_match']:>7.1%}  {r['num_samples']:>7}  {int(r['duration_seconds']):>7}s  {r['total_output_tokens']:>13}"
         )
 
 

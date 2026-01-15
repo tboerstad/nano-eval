@@ -62,7 +62,7 @@ class LoggedSample(TypedDict):
 
 
 class TaskResult(TypedDict):
-    elapsed_seconds: float
+    duration_seconds: float
     metrics: Metrics
     num_samples: int
     samples: NotRequired[list[LoggedSample]]
@@ -289,7 +289,7 @@ async def run_task(
     t0 = time.perf_counter()
     desc = "Running vision eval" if task.task_type == "vision" else "Running text eval"
     responses = await complete(prompts, config, desc)
-    elapsed = time.perf_counter() - t0
+    duration = time.perf_counter() - t0
 
     # Log warning if any responses did not complete with "stop"
     reason_counts = Counter(r["stop_reason"] for r in responses)
@@ -305,7 +305,7 @@ async def run_task(
     accuracy = sum(scores) / n if n else 0.0
     stderr = math.sqrt(accuracy * (1 - accuracy) / (n - 1)) if n > 1 else 0.0
 
-    logger.debug(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
+    logger.debug(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({duration:.2f}s)")
 
     # Always collect per-sample data for optional JSONL export (negligible overhead)
     logged_samples: list[LoggedSample] = [
@@ -322,7 +322,7 @@ async def run_task(
         for i, (s, r, score) in enumerate(zip(samples, responses, scores))
     ]
     return TaskResult(
-        elapsed_seconds=round(elapsed, 2),
+        duration_seconds=round(duration, 2),
         metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
         num_samples=n,
         samples=logged_samples,
