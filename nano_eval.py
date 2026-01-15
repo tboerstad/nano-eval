@@ -18,6 +18,13 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+
+class _LevelPrefixFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        m = record.getMessage()
+        return f"{record.levelname}: {m}" if record.levelno >= logging.WARNING else m
+
+
 if TYPE_CHECKING:
     from core import LoggedSample, TaskResult
 
@@ -274,8 +281,12 @@ def main(
     Example: nano-eval -t text
     """
     log_level = logging.DEBUG if verbose >= 2 else logging.INFO
-    log_format = "%(message)s" if verbose < 1 else logging.BASIC_FORMAT
-    logging.basicConfig(level=log_level, format=log_format)
+    if verbose < 1:
+        handler = logging.StreamHandler()
+        handler.setFormatter(_LevelPrefixFormatter())
+        logging.basicConfig(level=log_level, handlers=[handler])
+    else:
+        logging.basicConfig(level=log_level, format=logging.BASIC_FORMAT)
     if verbose < 1:
         logging.getLogger("httpx").setLevel(logging.WARNING)
 
