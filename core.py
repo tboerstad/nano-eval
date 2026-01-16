@@ -70,6 +70,7 @@ class TaskResult(TypedDict):
     task: str
     task_type: str
     total_output_tokens: int
+    total_tokens_per_second: float
 
 
 @dataclass(frozen=True)
@@ -321,6 +322,7 @@ async def run_task(
         )
         for i, (s, r, score) in enumerate(zip(samples, responses, scores))
     ]
+    total_output_tokens = sum(r["output_tokens"] for r in responses)
     return TaskResult(
         elapsed_seconds=round(elapsed, 2),
         metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
@@ -329,7 +331,10 @@ async def run_task(
         samples_hash=samples_hash,
         task=task.name,
         task_type=task.task_type,
-        total_output_tokens=sum(r["output_tokens"] for r in responses),
+        total_output_tokens=total_output_tokens,
+        total_tokens_per_second=round(total_output_tokens / elapsed, 2)
+        if elapsed > 0
+        else 0.0,
     )
 
 

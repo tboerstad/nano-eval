@@ -184,6 +184,7 @@ async def evaluate(
             task=result["task"],
             task_type=result["task_type"],
             total_output_tokens=result["total_output_tokens"],
+            total_tokens_per_second=result["total_tokens_per_second"],
         )
         total_seconds += result["elapsed_seconds"]
 
@@ -205,11 +206,11 @@ async def evaluate(
 
 def _print_results_table(result: EvalResult) -> None:
     """Print a mini results table."""
-    print("\nTask    Accuracy  Samples  Duration  Output Tokens")
-    print("------  --------  -------  --------  -------------")
+    print("\nTask    Accuracy  Samples  Duration  Output Tokens  Tokens/sec")
+    print("------  --------  -------  --------  -------------  ----------")
     for r in result["results"].values():
         print(
-            f"{r['task_type']:<6}  {r['metrics']['exact_match']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}"
+            f"{r['task_type']:<6}  {r['metrics']['exact_match']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}  {r['total_tokens_per_second']:>10.2f}"
         )
 
 
