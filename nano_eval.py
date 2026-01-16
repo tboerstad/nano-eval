@@ -183,6 +183,7 @@ async def evaluate(
             samples_hash=result["samples_hash"],
             task=result["task"],
             task_type=result["task_type"],
+            total_input_tokens=result["total_input_tokens"],
             total_output_tokens=result["total_output_tokens"],
             total_tokens_per_second=result["total_tokens_per_second"],
         )
