@@ -139,7 +139,7 @@ async def _request(
             stop_reason=data["choices"][0]["finish_reason"],
             input_tokens=data["usage"]["prompt_tokens"],
             output_tokens=data["usage"]["completion_tokens"],
-            duration_seconds=round(duration, 3),
+            duration_seconds=duration,
         )
     raise RuntimeError(f"Request failed: {resp.text}")
 
@@ -329,7 +329,7 @@ async def run_task(
     total_output_tokens = sum(r["output_tokens"] for r in responses)
     total_tokens = total_input_tokens + total_output_tokens
     return TaskResult(
-        elapsed_seconds=round(elapsed, 2),
+        elapsed_seconds=elapsed,
         metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
         num_samples=n,
         samples=logged_samples,
