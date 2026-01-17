@@ -112,5 +112,5 @@ chartqa = Task(
     name="chartqa",
     task_type="vision",
     samples=samples,
-    score=score,
+    score=_relaxed_match,
 )
