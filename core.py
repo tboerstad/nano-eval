@@ -60,7 +60,6 @@ class LoggedSample(TypedDict):
     input_tokens: int
     output_tokens: int
     duration_seconds: float
-    tokens_per_second: float
 
 
 class TaskResult(TypedDict):
@@ -312,30 +311,23 @@ async def run_task(
     logger.debug(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
 
     # Always collect per-sample data for optional JSONL export (negligible overhead)
-    logged_samples: list[LoggedSample] = []
-    for i, (s, r, score) in enumerate(zip(samples, responses, scores)):
-        total_tokens = r["input_tokens"] + r["output_tokens"]
-        tps = total_tokens / r["duration_seconds"] if r["duration_seconds"] > 0 else 0.0
-        logged_samples.append(
-            LoggedSample(
-                sample_id=i,
-                target=s.target,
-                prompt=_prompt_to_str(s.prompt),
-                response=r["answer"],
-                exact_match=score,
-                stop_reason=r["stop_reason"],
-                input_tokens=r["input_tokens"],
-                output_tokens=r["output_tokens"],
-                duration_seconds=r["duration_seconds"],
-                tokens_per_second=round(tps, 2),
-            )
+    logged_samples: list[LoggedSample] = [
+        LoggedSample(
+            sample_id=i,
+            target=s.target,
+            prompt=_prompt_to_str(s.prompt),
+            response=r["answer"],
+            exact_match=score,
+            stop_reason=r["stop_reason"],
+            input_tokens=r["input_tokens"],
+            output_tokens=r["output_tokens"],
+            duration_seconds=r["duration_seconds"],
         )
-
+        for i, (s, r, score) in enumerate(zip(samples, responses, scores))
+    ]
     total_input_tokens = sum(r["input_tokens"] for r in responses)
     total_output_tokens = sum(r["output_tokens"] for r in responses)
-    avg_tokens_per_second = (
-        sum(s["tokens_per_second"] for s in logged_samples) / n if n > 0 else 0.0
-    )
+    total_tokens = total_input_tokens + total_output_tokens
     return TaskResult(
         elapsed_seconds=round(elapsed, 2),
         metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
@@ -346,7 +338,9 @@ async def run_task(
         task_type=task.task_type,
         total_input_tokens=total_input_tokens,
         total_output_tokens=total_output_tokens,
-        total_tokens_per_second=round(avg_tokens_per_second, 2),
+        total_tokens_per_second=round(total_tokens / elapsed, 2)
+        if elapsed > 0
+        else 0.0,
     )
 
 
