@@ -286,7 +286,7 @@ def main(
     Example: nano-eval -t text
     """
     log_level = logging.DEBUG if verbose >= 2 else logging.INFO
-    if verbose < 1:
+    if verbose < 1:  # Prefix WARNING/ERROR only
         handler = logging.StreamHandler()
         handler.setFormatter(_LevelPrefixFormatter())
         logging.basicConfig(level=log_level, handlers=[handler])
