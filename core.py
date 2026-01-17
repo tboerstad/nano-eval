@@ -338,7 +338,7 @@ async def run_task(
         task_type=task.task_type,
         total_input_tokens=total_input_tokens,
         total_output_tokens=total_output_tokens,
-        throughput=round(total_tokens / elapsed, 2) if elapsed > 0 else 0.0,
+        throughput=total_tokens / elapsed if elapsed > 0 else 0.0,
     )
 
 
