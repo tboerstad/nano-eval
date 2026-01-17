@@ -18,6 +18,16 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+
+class _LevelPrefixFormatter(logging.Formatter):
+    """Formatter that prefixes WARNING/ERROR messages with their level."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        if record.levelno >= logging.WARNING:
+            return f"{record.levelname}: {record.getMessage()}"
+        return record.getMessage()
+
+
 if TYPE_CHECKING:
     from core import LoggedSample, TaskResult
 
@@ -276,10 +286,13 @@ def main(
     Example: nano-eval -t text
     """
     log_level = logging.DEBUG if verbose >= 2 else logging.INFO
-    log_format = "%(message)s" if verbose < 1 else logging.BASIC_FORMAT
-    logging.basicConfig(level=log_level, format=log_format)
     if verbose < 1:
+        handler = logging.StreamHandler()
+        handler.setFormatter(_LevelPrefixFormatter())
+        logging.basicConfig(level=log_level, handlers=[handler])
         logging.getLogger("httpx").setLevel(logging.WARNING)
+    else:
+        logging.basicConfig(level=log_level, format=logging.BASIC_FORMAT)
 
     result = asyncio.run(
         evaluate(
