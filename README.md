@@ -6,10 +6,10 @@
 uvx nano-eval -t text -t vision --max-samples 100
 
 # prints:
-Task    Accuracy  Samples  Duration  Output Tokens
-------  --------  -------  --------  -------------
-text      84.3%      100       45s          12340
-vision    71.8%      100       38s           8920
+Task    Accuracy  Samples  Duration  Output Tokens  Throughput
+------  --------  -------  --------  -------------  ----------
+text      86.0%      100       15s          11873        7658
+vision    72.0%      100       37s           8714        1894
 ```
 
 > **Note:** This tool is for eyeballing the accuracy of a model. One use case is comparing accuracy between inference frameworks (e.g., vLLM vs SGLang vs MAX running the same model).
@@ -77,24 +77,26 @@ When using `--output-path`, a `results.json` file is generated:
 ```json
 {
   "config": {
-    "max_samples": 37,
-    "model": "google/gemma-3-4b-it"
+    "max_samples": 100,
+    "model": "deepseek-chat"
   },
-  "framework_version": "0.2.1",
+  "framework_version": "0.2.4",
   "results": {
     "text": {
-      "elapsed_seconds": 28.45,
+      "elapsed_seconds": 15.51,
       "metrics": {
-        "exact_match": 0.7837837837837838,
-        "exact_match_stderr": 0.06861056852129647
+        "exact_match": 0.86,
+        "exact_match_stderr": 0.03487350880197947
       },
-      "num_samples": 37,
+      "num_samples": 100,
       "samples_hash": "12a1e9404db6afe810290a474d69cfebdaffefd0b56e48ac80e1fec0f286d659",
       "task": "gsm8k_cot_llama",
       "task_type": "text",
-      "total_output_tokens": 5765
+      "total_input_tokens": 106965,
+      "total_output_tokens": 11873,
+      "throughput": 7658.994842036105
     }
   },
-  "total_seconds": 28.45
+  "total_seconds": 15.51
 }
 ```
