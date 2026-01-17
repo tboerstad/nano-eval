@@ -193,7 +193,7 @@ async def evaluate(
         "config": {"max_samples": max_samples, "model": config.model},
         "framework_version": version("nano-eval"),
         "results": results,
-        "total_seconds": round(total_seconds, 2),
+        "total_seconds": total_seconds,
     }
 
     if output_path:
