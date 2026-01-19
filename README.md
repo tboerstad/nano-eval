@@ -94,7 +94,7 @@ When using `--output-path`, a `results.json` file is generated:
       "task_type": "text",
       "total_input_tokens": 106965,
       "total_output_tokens": 11873,
-      "throughput": 7658.994842036105
+      "tokens_per_second": 7658.994842036105
     }
   },
   "total_seconds": 15.51

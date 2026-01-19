@@ -72,7 +72,7 @@ class TaskResult(TypedDict):
     task_type: str
     total_input_tokens: int
     total_output_tokens: int
-    throughput: float
+    tokens_per_second: float
 
 
 @dataclass(frozen=True)
@@ -339,7 +339,7 @@ async def run_task(
         task_type=task.task_type,
         total_input_tokens=total_input_tokens,
         total_output_tokens=total_output_tokens,
-        throughput=total_tokens / total_duration,
+        tokens_per_second=total_tokens / total_duration,
     )
 
 
