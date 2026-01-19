@@ -328,6 +328,7 @@ async def run_task(
     total_input_tokens = sum(r["input_tokens"] for r in responses)
     total_output_tokens = sum(r["output_tokens"] for r in responses)
     total_tokens = total_input_tokens + total_output_tokens
+    total_duration = sum(r["duration_seconds"] for r in responses)
     return TaskResult(
         elapsed_seconds=elapsed,
         metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
@@ -338,7 +339,7 @@ async def run_task(
         task_type=task.task_type,
         total_input_tokens=total_input_tokens,
         total_output_tokens=total_output_tokens,
-        throughput=total_tokens / elapsed,
+        throughput=total_tokens / total_duration,
     )
 
 
