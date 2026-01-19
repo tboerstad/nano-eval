@@ -217,7 +217,8 @@ async def evaluate(
 
 def _print_results_table(result: EvalResult) -> None:
     """Print a mini results table."""
-    print("\nTask    Accuracy  Samples  Duration  Output Tokens  Tokens/sec")
+    print(f"\n{'Per request':>62}")
+    print("Task    Accuracy  Samples  Duration  Output Tokens  tokens/sec")
     print("------  --------  -------  --------  -------------  ----------")
     for r in result["results"].values():
         print(
