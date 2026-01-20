@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 import click
 import httpx
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("nano_eval")
 
 
 class _LevelPrefixFormatter(logging.Formatter):
@@ -265,7 +265,7 @@ def _print_results_table(result: EvalResult) -> None:
     "-v",
     "--verbose",
     count=True,
-    help="Increase verbosity (up to -vv)",
+    help="Increase verbosity (up to -vvv)",
 )
 @click.version_option(version=version("nano-eval"), prog_name="nano-eval")
 def main(
@@ -285,14 +285,23 @@ def main(
 
     Example: nano-eval -t text
     """
-    log_level = logging.DEBUG if verbose >= 2 else logging.INFO
-    if verbose < 1:  # Remove INFO prefix to declutter
+    if verbose < 1:  # Default: clean output with custom formatter
         handler = logging.StreamHandler()
         handler.setFormatter(_LevelPrefixFormatter())
-        logging.basicConfig(level=log_level, handlers=[handler])
-        logging.getLogger("httpx").setLevel(logging.WARNING)
+        logging.basicConfig(level=logging.INFO, handlers=[handler])
     else:
-        logging.basicConfig(level=log_level, format=logging.BASIC_FORMAT)
+        logging.basicConfig(level=logging.INFO, format=logging.BASIC_FORMAT)
+
+    # Suppress noisy libraries by default
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+    # Each -v increases verbosity
+    if verbose >= 1:  # -v: DEBUG for nano-eval
+        logger.setLevel(logging.DEBUG)
+    if verbose >= 2:  # -vv: INFO for httpx
+        logging.getLogger("httpx").setLevel(logging.INFO)
+    if verbose >= 3:  # -vvv: DEBUG for httpx
+        logging.getLogger("httpx").setLevel(logging.DEBUG)
 
     result = asyncio.run(
         evaluate(
