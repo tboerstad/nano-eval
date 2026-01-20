@@ -286,14 +286,17 @@ def main(
     Example: nano-eval -t text
     """
     if verbose < 2:  # -v or less: clean output with custom formatter
-        log_level = logging.DEBUG if verbose >= 1 else logging.INFO
         handler = logging.StreamHandler()
         handler.setFormatter(_LevelPrefixFormatter())
-        logging.basicConfig(level=log_level, handlers=[handler])
+        logging.basicConfig(level=logging.INFO, handlers=[handler])
         logging.getLogger("httpx").setLevel(logging.WARNING)
+        if verbose >= 1:  # -v: DEBUG for nano-eval only
+            logger.setLevel(logging.DEBUG)
     else:  # -vv or more: full logging output
         log_level = logging.DEBUG if verbose >= 3 else logging.INFO
         logging.basicConfig(level=log_level, format=logging.BASIC_FORMAT)
+        if verbose < 3:  # -vv: DEBUG for nano-eval only
+            logger.setLevel(logging.DEBUG)
 
     result = asyncio.run(
         evaluate(
