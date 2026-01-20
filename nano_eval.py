@@ -287,11 +287,13 @@ def main(
     """
     if verbose >= 3:  # -vvv: DEBUG for all
         logging.basicConfig(level=logging.DEBUG, format=logging.BASIC_FORMAT)
-    elif verbose == 2:  # -vv: INFO for all
-        logging.basicConfig(level=logging.INFO, format=logging.BASIC_FORMAT)
-    elif verbose == 1:  # -v: DEBUG for nano-eval only
+    elif verbose == 2:  # -vv: DEBUG for nano-eval, httpx INFO
         logging.basicConfig(level=logging.INFO, format=logging.BASIC_FORMAT)
         logger.setLevel(logging.DEBUG)
+    elif verbose == 1:  # -v: DEBUG for nano-eval, httpx WARNING
+        logging.basicConfig(level=logging.INFO, format=logging.BASIC_FORMAT)
+        logger.setLevel(logging.DEBUG)
+        logging.getLogger("httpx").setLevel(logging.WARNING)
     else:  # Default: clean output with custom formatter
         handler = logging.StreamHandler()
         handler.setFormatter(_LevelPrefixFormatter())
