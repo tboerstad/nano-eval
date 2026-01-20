@@ -265,7 +265,7 @@ def _print_results_table(result: EvalResult) -> None:
     "-v",
     "--verbose",
     count=True,
-    help="Increase verbosity (up to -vv)",
+    help="Increase verbosity (up to -vvv)",
 )
 @click.version_option(version=version("nano-eval"), prog_name="nano-eval")
 def main(
@@ -285,13 +285,14 @@ def main(
 
     Example: nano-eval -t text
     """
-    log_level = logging.DEBUG if verbose >= 2 else logging.INFO
-    if verbose < 1:  # Remove INFO prefix to declutter
+    if verbose < 2:  # -v or less: clean output with custom formatter
+        log_level = logging.DEBUG if verbose >= 1 else logging.INFO
         handler = logging.StreamHandler()
         handler.setFormatter(_LevelPrefixFormatter())
         logging.basicConfig(level=log_level, handlers=[handler])
         logging.getLogger("httpx").setLevel(logging.WARNING)
-    else:
+    else:  # -vv or more: full logging output
+        log_level = logging.DEBUG if verbose >= 3 else logging.INFO
         logging.basicConfig(level=log_level, format=logging.BASIC_FORMAT)
 
     result = asyncio.run(

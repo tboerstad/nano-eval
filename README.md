@@ -48,7 +48,7 @@ Options:
   --log-samples                   Save per-sample results as JSONL (requires
                                   --output-path)
   --seed INTEGER                  Controls sample order  [default: 42]
-  -v, --verbose                   Increase verbosity (up to -vv)
+  -v, --verbose                   Increase verbosity (up to -vvv)
   --version                       Show the version and exit.
   --help                          Show this message and exit.
 ```
