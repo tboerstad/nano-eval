@@ -306,6 +306,24 @@ async def run_task(
 
     scores = [task.score(r["answer"], s.target) for r, s in zip(responses, samples)]
     n = len(samples)
+
+    # Debug log each request with prompt, answer, and result
+    for i, (s, r, score) in enumerate(zip(samples, responses, scores)):
+        prompt_text = _prompt_to_str(s.prompt).replace("\\n", "\n")
+        answer_text = r["answer"].replace("\\n", "\n")
+        emoji = "✅" if score == 1.0 else "❌"
+        logger.debug(
+            f"\n{'=' * 60}\n"
+            f"Sample {i + 1}/{n} {emoji}\n"
+            f"{'=' * 60}\n"
+            f"PROMPT:\n{prompt_text}\n"
+            f"{'-' * 60}\n"
+            f"ANSWER:\n{answer_text}\n"
+            f"{'-' * 60}\n"
+            f"TARGET: {s.target}\n"
+            f"{'=' * 60}"
+        )
+
     accuracy = sum(scores) / n if n else 0.0
     stderr = math.sqrt(accuracy * (1 - accuracy) / (n - 1)) if n > 1 else 0.0
 
