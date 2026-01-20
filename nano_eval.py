@@ -144,7 +144,7 @@ async def evaluate(
 
     if base_url is None:
         base_url = _detect_base_url(api_key)
-        logger.info(f"Auto-detected endpoint: {base_url}")
+        logger.info(f"`base_url` not provided, using auto-detected endpoint: {base_url}")
 
     base_url = base_url.rstrip("/")
     logger.info(f"Checking that endpoint is responding: {base_url}/chat/completions")
@@ -154,7 +154,7 @@ async def evaluate(
         models = _list_models(base_url, api_key)
         if len(models) == 1:
             model = models[0]
-            logger.info(f"Successfully auto-detected model: {model}")
+            logger.info(f"`model` not provided, using auto-detected model: {model}")
         else:
             raise ValueError(
                 f"Auto-detecting model failed: found {len(models)} models: {', '.join(models)}. "
@@ -185,7 +185,7 @@ async def evaluate(
         if output_path and log_samples:
             samples_file = output_path / f"samples_{task.name}.jsonl"
             _write_samples_jsonl(samples_file, result["samples"])
-            logger.info(f"`{type_name.title()}` sample log written to: {samples_file}")
+            logger.info(f"Request logs for {type_name} dataset written to: {samples_file}")
         results[type_name] = TaskResult(
             elapsed_seconds=result["elapsed_seconds"],
             metrics=result["metrics"],
@@ -207,10 +207,10 @@ async def evaluate(
     }
 
     if output_path:
-        results_file = output_path / "results.json"
+        results_file = output_path / "eval_results.json"
         with open(results_file, "w") as f:
             json.dump(eval_result, f, indent=2)
-        logger.info(f"Results written to: {results_file}")
+        logger.info(f"Evaluation result written to: {results_file}")
 
     return eval_result
 
