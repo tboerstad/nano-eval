@@ -298,8 +298,9 @@ async def run_task(
     reason_counts = Counter(r["stop_reason"] for r in responses)
     non_stop_count = sum(c for reason, c in reason_counts.items() if reason != "stop")
     if non_stop_count > 0:
+        response_word = "response" if non_stop_count == 1 else "responses"
         logger.warning(
-            f"{non_stop_count} response(s) did not finish with 'stop'. "
+            f"{non_stop_count} {response_word} did not finish with 'stop'. "
             f"Completion reasons:\n{pprint.pformat(dict(reason_counts))}"
         )
 
