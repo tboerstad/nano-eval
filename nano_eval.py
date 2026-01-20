@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 import click
 import httpx
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("nano_eval")
 
 
 class _LevelPrefixFormatter(logging.Formatter):

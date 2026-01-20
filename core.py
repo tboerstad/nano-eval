@@ -34,7 +34,7 @@ from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
 from typing_extensions import NotRequired, TypedDict
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("nano_eval.core")
 
 
 class Metrics(TypedDict):

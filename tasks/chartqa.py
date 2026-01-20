@@ -14,7 +14,7 @@ import re
 
 from core import Sample, Task, VisionPrompt, offline_if_cached
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("nano_eval.tasks.chartqa")
 
 _CHARTQA_REVISION = "b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5"
 

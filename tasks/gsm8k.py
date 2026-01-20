@@ -14,7 +14,7 @@ import re
 
 from core import Sample, Task, TextPrompt, _normalize, offline_if_cached
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("nano_eval.tasks.gsm8k")
 
 _GSM8K_REVISION = "cc7b047b6e5bb11b4f1af84efc572db110a51b3c"
 
