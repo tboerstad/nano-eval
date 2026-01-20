@@ -294,7 +294,6 @@ def main(
 
     # Suppress noisy libraries by default
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("datasets").setLevel(logging.ERROR)
 
     # Each -v increases verbosity
     if verbose >= 1:  # -v: DEBUG for nano-eval
