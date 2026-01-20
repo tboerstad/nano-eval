@@ -289,16 +289,20 @@ def main(
         handler = logging.StreamHandler()
         handler.setFormatter(_LevelPrefixFormatter())
         logging.basicConfig(level=logging.INFO, handlers=[handler])
-        logging.getLogger("httpx").setLevel(logging.WARNING)
-    elif verbose == 1:  # -v: DEBUG for nano-eval, httpx WARNING
+    else:
         logging.basicConfig(level=logging.INFO, format=logging.BASIC_FORMAT)
+
+    # Suppress noisy libraries by default
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("datasets").setLevel(logging.ERROR)
+
+    # Each -v increases verbosity
+    if verbose >= 1:  # -v: DEBUG for nano-eval
         logger.setLevel(logging.DEBUG)
-        logging.getLogger("httpx").setLevel(logging.WARNING)
-    elif verbose == 2:  # -vv: DEBUG for nano-eval, httpx INFO
-        logging.basicConfig(level=logging.INFO, format=logging.BASIC_FORMAT)
-        logger.setLevel(logging.DEBUG)
-    else:  # -vvv: DEBUG for all
-        logging.basicConfig(level=logging.DEBUG, format=logging.BASIC_FORMAT)
+    if verbose >= 2:  # -vv: INFO for httpx
+        logging.getLogger("httpx").setLevel(logging.INFO)
+    if verbose >= 3:  # -vvv: DEBUG for httpx
+        logging.getLogger("httpx").setLevel(logging.DEBUG)
 
     result = asyncio.run(
         evaluate(
