@@ -63,6 +63,7 @@ class LoggedSample(TypedDict):
 
 
 class TaskResult(TypedDict):
+    avg_tokens_per_request: float
     elapsed_seconds: float
     metrics: Metrics
     num_samples: int
@@ -359,6 +360,7 @@ async def run_task(
     total_tokens = total_input_tokens + total_output_tokens
     total_duration = sum(r["duration_seconds"] for r in responses)
     return TaskResult(
+        avg_tokens_per_request=total_tokens / n if n else 0.0,
         elapsed_seconds=elapsed,
         metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
         num_samples=n,
