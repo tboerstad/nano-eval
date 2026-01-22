@@ -119,18 +119,18 @@ class TestE2E:
                         "--max-samples=10",
                         "--output-path",
                         str(tmp_path),
-                        "--log-samples",
+                        "--log-requests",
                     ],
                 )
                 assert result.exit_code == 0, result.output
 
-        results = json.loads((tmp_path / "results.json").read_text())
+        results = json.loads((tmp_path / "eval_results.json").read_text())
         assert results["results"]["text"]["metrics"]["exact_match"] == 0.7
         assert results["results"]["text"]["samples_hash"] == GSM8K_HASH
 
         samples = [
             json.loads(line)
-            for line in (tmp_path / "samples_gsm8k_cot_llama.jsonl")
+            for line in (tmp_path / "requests_text.jsonl")
             .read_text()
             .strip()
             .split("\n")
@@ -200,18 +200,18 @@ class TestE2E:
                         "--max-samples=10",
                         "--output-path",
                         str(tmp_path),
-                        "--log-samples",
+                        "--log-requests",
                     ],
                 )
                 assert result.exit_code == 0, result.output
 
-        results = json.loads((tmp_path / "results.json").read_text())
+        results = json.loads((tmp_path / "eval_results.json").read_text())
         assert results["results"]["vision"]["metrics"]["exact_match"] == 0.7
         assert results["results"]["vision"]["samples_hash"] == CHARTQA_HASH
 
         samples = [
             json.loads(line)
-            for line in (tmp_path / "samples_chartqa.jsonl")
+            for line in (tmp_path / "requests_vision.jsonl")
             .read_text()
             .strip()
             .split("\n")
