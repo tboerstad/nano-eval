@@ -29,7 +29,7 @@ class _LevelPrefixFormatter(logging.Formatter):
 
 
 if TYPE_CHECKING:
-    from core import LoggedSample, TaskResult
+    from core import RequestLogEntry, TaskResult
 
 __all__ = ["evaluate", "EvalResult"]
 
@@ -104,7 +104,7 @@ def _list_models(base_url: str, api_key: str = "") -> list[str]:
     return [model["id"] for model in resp.json().get("data", [])]
 
 
-def _write_requests_jsonl(filepath: Path, requests: list[LoggedSample]) -> None:
+def _write_requests_jsonl(filepath: Path, requests: list[RequestLogEntry]) -> None:
     """Write per-request results to JSONL file."""
     with open(filepath, "w") as f:
         for request in requests:
@@ -186,7 +186,7 @@ async def evaluate(
         result = await run_task(task, config, max_samples, seed)
         if output_path and log_requests:
             requests_file = output_path / f"request_log_{task.task_type}.jsonl"
-            _write_requests_jsonl(requests_file, result["samples"])
+            _write_requests_jsonl(requests_file, result["request_logs"])
             logger.info(
                 f"Request logs for {type_name} dataset written to: {requests_file}"
             )

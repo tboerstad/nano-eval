@@ -128,24 +128,24 @@ class TestE2E:
         assert results["results"]["text"]["metrics"]["exact_match"] == 0.7
         assert results["results"]["text"]["samples_hash"] == GSM8K_HASH
 
-        samples = [
+        requests = [
             json.loads(line)
             for line in (tmp_path / "request_log_text.jsonl")
             .read_text()
             .strip()
             .split("\n")
         ]
-        assert len(samples) == 10
-        assert samples[0]["sample_id"] == 0
-        assert samples[0]["target"] == "18"
-        assert samples[0]["response"] == "The final answer is 18"
-        assert samples[0]["exact_match"] == 1.0
-        assert samples[0]["stop_reason"] == "stop"
-        assert samples[0]["output_tokens"] == 5
-        assert "duration_seconds" in samples[0]
-        assert isinstance(samples[0]["duration_seconds"], float)
-        assert samples[3]["target"] == "540"
-        assert samples[3]["exact_match"] == 0.0
+        assert len(requests) == 10
+        assert requests[0]["request_id"] == 0
+        assert requests[0]["target"] == "18"
+        assert requests[0]["response"] == "The final answer is 18"
+        assert requests[0]["exact_match"] == 1.0
+        assert requests[0]["stop_reason"] == "stop"
+        assert requests[0]["output_tokens"] == 5
+        assert "duration_seconds" in requests[0]
+        assert isinstance(requests[0]["duration_seconds"], float)
+        assert requests[3]["target"] == "540"
+        assert requests[3]["exact_match"] == 0.0
 
     def test_chartqa_evaluation(self, tmp_path):
         """ChartQA evaluation with real dataset, mocked API."""
@@ -209,24 +209,24 @@ class TestE2E:
         assert results["results"]["vision"]["metrics"]["exact_match"] == 0.7
         assert results["results"]["vision"]["samples_hash"] == CHARTQA_HASH
 
-        samples = [
+        requests = [
             json.loads(line)
             for line in (tmp_path / "request_log_vision.jsonl")
             .read_text()
             .strip()
             .split("\n")
         ]
-        assert len(samples) == 10
-        assert samples[0]["sample_id"] == 0
-        assert samples[0]["target"] == "14"
-        assert samples[0]["response"] == "FINAL ANSWER: 14"
-        assert samples[0]["exact_match"] == 1.0
-        assert samples[0]["stop_reason"] == "stop"
-        assert samples[0]["output_tokens"] == 10
-        assert "duration_seconds" in samples[0]
-        assert isinstance(samples[0]["duration_seconds"], float)
-        assert samples[4]["target"] == "23"
-        assert samples[4]["exact_match"] == 0.0
+        assert len(requests) == 10
+        assert requests[0]["request_id"] == 0
+        assert requests[0]["target"] == "14"
+        assert requests[0]["response"] == "FINAL ANSWER: 14"
+        assert requests[0]["exact_match"] == 1.0
+        assert requests[0]["stop_reason"] == "stop"
+        assert requests[0]["output_tokens"] == 10
+        assert "duration_seconds" in requests[0]
+        assert isinstance(requests[0]["duration_seconds"], float)
+        assert requests[4]["target"] == "23"
+        assert requests[4]["exact_match"] == 0.0
 
 
 class TestCLI:
