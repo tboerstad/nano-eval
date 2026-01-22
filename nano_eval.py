@@ -185,7 +185,7 @@ async def evaluate(
         task = TASKS[type_name]
         result = await run_task(task, config, max_samples, seed)
         if output_path and log_requests:
-            requests_file = output_path / f"requests_{task.task_type}.jsonl"
+            requests_file = output_path / f"request_log_{task.task_type}.jsonl"
             _write_requests_jsonl(requests_file, result["samples"])
             logger.info(
                 f"Request logs for {type_name} dataset written to: {requests_file}"

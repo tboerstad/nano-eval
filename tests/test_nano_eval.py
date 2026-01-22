@@ -130,7 +130,7 @@ class TestE2E:
 
         samples = [
             json.loads(line)
-            for line in (tmp_path / "requests_text.jsonl")
+            for line in (tmp_path / "request_log_text.jsonl")
             .read_text()
             .strip()
             .split("\n")
@@ -211,7 +211,7 @@ class TestE2E:
 
         samples = [
             json.loads(line)
-            for line in (tmp_path / "requests_vision.jsonl")
+            for line in (tmp_path / "request_log_vision.jsonl")
             .read_text()
             .strip()
             .split("\n")
