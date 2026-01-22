@@ -50,8 +50,8 @@ class ApiResponse(TypedDict):
     duration_seconds: float
 
 
-class LoggedSample(TypedDict):
-    sample_id: int
+class RequestLogEntry(TypedDict):
+    request_id: int
     target: str
     prompt: str
     response: str
@@ -66,7 +66,7 @@ class TaskResult(TypedDict):
     elapsed_seconds: float
     metrics: Metrics
     num_samples: int
-    samples: NotRequired[list[LoggedSample]]
+    request_logs: NotRequired[list[RequestLogEntry]]
     samples_hash: str
     task: str
     task_type: str
@@ -339,10 +339,10 @@ async def run_task(
 
     logger.debug(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
 
-    # Always collect per-sample data for optional JSONL export (negligible overhead)
-    logged_samples: list[LoggedSample] = [
-        LoggedSample(
-            sample_id=i,
+    # Always collect per-request data for optional JSONL export (negligible overhead)
+    request_logs: list[RequestLogEntry] = [
+        RequestLogEntry(
+            request_id=i,
             target=s.target,
             prompt=_prompt_to_str(s.prompt),
             response=r["answer"],
@@ -362,7 +362,7 @@ async def run_task(
         elapsed_seconds=elapsed,
         metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
         num_samples=n,
-        samples=logged_samples,
+        request_logs=request_logs,
         samples_hash=samples_hash,
         task=task.name,
         task_type=task.task_type,

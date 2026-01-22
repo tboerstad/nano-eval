@@ -29,7 +29,7 @@ class _LevelPrefixFormatter(logging.Formatter):
 
 
 if TYPE_CHECKING:
-    from core import LoggedSample, TaskResult
+    from core import RequestLogEntry, TaskResult
 
 __all__ = ["evaluate", "EvalResult"]
 
@@ -104,11 +104,11 @@ def _list_models(base_url: str, api_key: str = "") -> list[str]:
     return [model["id"] for model in resp.json().get("data", [])]
 
 
-def _write_samples_jsonl(filepath: Path, samples: list[LoggedSample]) -> None:
-    """Write per-sample results to JSONL file."""
+def _write_requests_jsonl(filepath: Path, requests: list[RequestLogEntry]) -> None:
+    """Write per-request results to JSONL file."""
     with open(filepath, "w") as f:
-        for sample in samples:
-            f.write(json.dumps(sample, ensure_ascii=False) + "\n")
+        for request in requests:
+            f.write(json.dumps(request, ensure_ascii=False) + "\n")
 
 
 async def evaluate(
@@ -120,7 +120,7 @@ async def evaluate(
     gen_kwargs: dict[str, Any] | None = None,
     max_samples: int | None = None,
     output_path: Path | None = None,
-    log_samples: bool = False,
+    log_requests: bool = False,
     seed: int = 42,
 ) -> EvalResult:
     """
@@ -134,7 +134,7 @@ async def evaluate(
         gen_kwargs: API params like temperature, max_tokens, seed
         max_samples: Optional limit on samples per task
         output_path: If provided, write results.json to this directory
-        log_samples: If True, also write samples_{task}.jsonl files
+        log_requests: If True, also write requests_{type}.jsonl files
 
     Returns:
         EvalResult with per-task metrics and metadata
@@ -144,7 +144,9 @@ async def evaluate(
 
     if base_url is None:
         base_url = _detect_base_url(api_key)
-        logger.info(f"`base_url` not provided, using auto-detected endpoint: {base_url}")
+        logger.info(
+            f"`base_url` not provided, using auto-detected endpoint: {base_url}"
+        )
 
     base_url = base_url.rstrip("/")
     logger.info(f"Checking that endpoint is responding: {base_url}/chat/completions")
@@ -182,10 +184,12 @@ async def evaluate(
             )
         task = TASKS[type_name]
         result = await run_task(task, config, max_samples, seed)
-        if output_path and log_samples:
-            samples_file = output_path / f"samples_{task.name}.jsonl"
-            _write_samples_jsonl(samples_file, result["samples"])
-            logger.info(f"Request logs for {type_name} dataset written to: {samples_file}")
+        if output_path and log_requests:
+            requests_file = output_path / f"request_log_{task.task_type}.jsonl"
+            _write_requests_jsonl(requests_file, result["request_logs"])
+            logger.info(
+                f"Request logs for {type_name} dataset written to: {requests_file}"
+            )
         results[type_name] = TaskResult(
             elapsed_seconds=result["elapsed_seconds"],
             metrics=result["metrics"],
@@ -253,12 +257,12 @@ def _print_results_table(result: EvalResult) -> None:
 @click.option(
     "--output-path",
     type=click.Path(),
-    help="Write results.json and sample logs to this directory",
+    help="Write results.json and request logs to this directory",
 )
 @click.option(
-    "--log-samples",
+    "--log-requests",
     is_flag=True,
-    help="Save per-sample results as JSONL (requires --output-path)",
+    help="Save per-request results as JSONL (requires --output-path)",
 )
 @click.option("--seed", default=42, show_default=True, help="Controls sample order")
 @click.option(
@@ -277,7 +281,7 @@ def main(
     gen_kwargs: str,
     max_samples: int | None,
     output_path: str | None,
-    log_samples: bool,
+    log_requests: bool,
     seed: int,
     verbose: int,
 ) -> None:
@@ -313,7 +317,7 @@ def main(
             gen_kwargs=_parse_kwargs(gen_kwargs),
             max_samples=max_samples,
             output_path=Path(output_path) if output_path else None,
-            log_samples=log_samples,
+            log_requests=log_requests,
             seed=seed,
         )
     )
