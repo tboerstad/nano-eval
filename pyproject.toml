@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nano-eval"
-version = "0.2.5"
+version = "0.2.6"
 description = "Nano Eval - A minimal tool for verifying VLMs/LLMs across frameworks"
 readme = "README.md"
 license = "MIT"
