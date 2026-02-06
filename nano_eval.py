@@ -139,7 +139,7 @@ async def evaluate(
     Returns:
         EvalResult with per-task metrics and metadata
     """
-    from core import APIConfig, TaskResult, run_task
+    from core import APIConfig, run_task
     from tasks import TASKS
 
     if base_url is None:
@@ -183,24 +183,14 @@ async def evaluate(
                 f"Unknown type: {type_name}. Available: {list(TASKS.keys())}"
             )
         task = TASKS[type_name]
-        result = await run_task(task, config, max_samples, seed)
+        result, request_logs = await run_task(task, config, max_samples, seed)
         if output_path and log_requests:
             requests_file = output_path / f"request_log_{task.task_type}.jsonl"
-            _write_requests_jsonl(requests_file, result["request_logs"])
+            _write_requests_jsonl(requests_file, request_logs)
             logger.info(
                 f"Request logs for {type_name} dataset written to: {requests_file}"
             )
-        results[type_name] = TaskResult(
-            elapsed_seconds=result["elapsed_seconds"],
-            metrics=result["metrics"],
-            num_samples=result["num_samples"],
-            samples_hash=result["samples_hash"],
-            task=result["task"],
-            task_type=result["task_type"],
-            total_input_tokens=result["total_input_tokens"],
-            total_output_tokens=result["total_output_tokens"],
-            tokens_per_second=result["tokens_per_second"],
-        )
+        results[type_name] = result
         total_seconds += result["elapsed_seconds"]
 
     eval_result: EvalResult = {
