@@ -113,8 +113,8 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
             f"HF_HOME={hf_home}"
         )
         result: list[Sample] = []
-        remaining = max_samples
         for split in ["test", "train"]:
+            remaining = None if max_samples is None else max_samples - len(result)
             if remaining is not None and remaining <= 0:
                 break
             ds = datasets.load_dataset(
@@ -136,8 +136,6 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
                         target=_parse_target(doc["answer"]),
                     )
                 )
-            if max_samples is not None:
-                remaining = max_samples - len(result)
         return result
 
 

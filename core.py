@@ -17,7 +17,6 @@ import base64
 import hashlib
 import logging
 import math
-import pprint
 import re
 import time
 from collections import Counter
@@ -32,7 +31,7 @@ import datasets.config as ds_config
 import httpx
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 logger = logging.getLogger("nano_eval.core")
 
@@ -66,7 +65,6 @@ class TaskResult(TypedDict):
     elapsed_seconds: float
     metrics: Metrics
     num_samples: int
-    request_logs: NotRequired[list[RequestLogEntry]]
     samples_hash: str
     task: str
     task_type: str
@@ -292,7 +290,7 @@ async def run_task(
     config: APIConfig,
     max_samples: int | None = None,
     seed: int | None = None,
-) -> TaskResult:
+) -> tuple[TaskResult, list[RequestLogEntry]]:
     """
     Evaluate a task: collect samples, run inference, compute scores.
 
@@ -314,18 +312,16 @@ async def run_task(
         f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
     )
     t0 = time.perf_counter()
-    desc = "Running vision eval" if task.task_type == "vision" else "Running text eval"
-    responses = await complete(prompts, config, desc)
+    responses = await complete(prompts, config, f"Running {task.task_type} eval")
     elapsed = time.perf_counter() - t0
 
     # Log warning if any responses did not complete with "stop"
     reason_counts = Counter(r["stop_reason"] for r in responses)
     non_stop_count = sum(c for reason, c in reason_counts.items() if reason != "stop")
-    if non_stop_count > 0:
-        response_word = "response" if non_stop_count == 1 else "responses"
+    if non_stop_count:
         logger.warning(
-            f"{non_stop_count} {response_word} did not finish with 'stop'. "
-            f"Completion reasons:\n{pprint.pformat(dict(reason_counts))}"
+            f"{non_stop_count} response(s) did not finish with 'stop'. "
+            f"Reasons: {dict(reason_counts)}"
         )
 
     scores = [task.score(r["answer"], s.target) for r, s in zip(responses, samples)]
@@ -339,7 +335,7 @@ async def run_task(
 
     logger.debug(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
 
-    # Always collect per-request data for optional JSONL export (negligible overhead)
+    # Collect per-request data for optional JSONL export (negligible overhead)
     request_logs: list[RequestLogEntry] = [
         RequestLogEntry(
             request_id=i,
@@ -358,11 +354,10 @@ async def run_task(
     total_output_tokens = sum(r["output_tokens"] for r in responses)
     total_tokens = total_input_tokens + total_output_tokens
     total_duration = sum(r["duration_seconds"] for r in responses)
-    return TaskResult(
+    result = TaskResult(
         elapsed_seconds=elapsed,
         metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
         num_samples=n,
-        request_logs=request_logs,
         samples_hash=samples_hash,
         task=task.name,
         task_type=task.task_type,
@@ -370,6 +365,7 @@ async def run_task(
         total_output_tokens=total_output_tokens,
         tokens_per_second=total_tokens / total_duration,
     )
+    return result, request_logs
 
 
 @contextmanager
