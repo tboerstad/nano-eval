@@ -37,8 +37,8 @@ logger = logging.getLogger("nano_eval.core")
 
 
 class Metrics(TypedDict):
-    exact_match: float
-    exact_match_stderr: float
+    accuracy: float
+    accuracy_stderr: float
 
 
 class ApiResponse(TypedDict):
@@ -54,7 +54,7 @@ class RequestLogEntry(TypedDict):
     target: str
     prompt: str
     response: str
-    exact_match: float
+    score: float
     stop_reason: str
     input_tokens: int
     output_tokens: int
@@ -342,7 +342,7 @@ async def run_task(
             target=s.target,
             prompt=_prompt_to_str(s.prompt),
             response=r["answer"],
-            exact_match=score,
+            score=score,
             stop_reason=r["stop_reason"],
             input_tokens=r["input_tokens"],
             output_tokens=r["output_tokens"],
@@ -356,7 +356,7 @@ async def run_task(
     total_duration = sum(r["duration_seconds"] for r in responses)
     result = TaskResult(
         elapsed_seconds=elapsed,
-        metrics=Metrics(exact_match=accuracy, exact_match_stderr=stderr),
+        metrics=Metrics(accuracy=accuracy, accuracy_stderr=stderr),
         num_samples=n,
         samples_hash=samples_hash,
         task=task.name,

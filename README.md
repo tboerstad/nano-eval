@@ -64,7 +64,7 @@ result = evaluate(
     model="meta-llama/Llama-3.2-1B-Instruct",
     max_samples=100,
 )
-print(f"Accuracy: {result['results']['text']['metrics']['exact_match']:.1%}")
+print(f"Accuracy: {result['results']['text']['metrics']['accuracy']:.1%}")
 ```
 
 ## Example Output
@@ -82,8 +82,8 @@ When using `--output-path`, an `eval_results.json` file is generated:
     "text": {
       "elapsed_seconds": 15.51,
       "metrics": {
-        "exact_match": 0.86,
-        "exact_match_stderr": 0.03487350880197947
+        "accuracy": 0.86,
+        "accuracy_stderr": 0.03487350880197947
       },
       "num_samples": 100,
       "samples_hash": "12a1e9404db6afe810290a474d69cfebdaffefd0b56e48ac80e1fec0f286d659",
@@ -106,7 +106,7 @@ With `--log-requests`, a `request_log_{modality}.jsonl` is written per modality:
   "target": "4",
   "prompt": "What is 2+2?",
   "response": "4",
-  "exact_match": 1.0,
+  "score": 1.0,
   "stop_reason": "stop",
   "input_tokens": 7,
   "output_tokens": 1,
