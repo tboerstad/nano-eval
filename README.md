@@ -43,8 +43,8 @@ Options:
   --extra-request-params TEXT     API params as key=value,...  [default:
                                   temperature=0,max_tokens=256,seed=42]
   --max-samples INTEGER           If provided, limit samples per task
-  --output-path PATH              Write results.json and request logs to this
-                                  directory
+  --output-path PATH              Write eval_results.json and request logs to
+                                  this directory
   --log-requests                  Save per-request results as JSONL (requires
                                   --output-path)
   --seed INTEGER                  Controls sample order  [default: 42]
@@ -67,12 +67,9 @@ text_result = result["results"]["text"]
 print(f"Accuracy: {text_result['metrics']['exact_match']:.1%}")
 ```
 
-
-This tool is inspired and borrows from: [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness). Please check it out
-
 ## Example Output
 
-When using `--output-path`, a `results.json` file is generated:
+When using `--output-path`, an `eval_results.json` file is generated:
 
 ```json
 {
@@ -80,7 +77,7 @@ When using `--output-path`, a `results.json` file is generated:
     "max_samples": 100,
     "model": "deepseek-chat"
   },
-  "framework_version": "0.2.4",
+  "framework_version": "0.2.6",
   "results": {
     "text": {
       "elapsed_seconds": 15.51,
@@ -100,3 +97,7 @@ When using `--output-path`, a `results.json` file is generated:
   "total_seconds": 15.51
 }
 ```
+
+---
+
+Inspired by [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness).

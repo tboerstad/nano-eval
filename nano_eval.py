@@ -247,7 +247,7 @@ def _print_results_table(result: EvalResult) -> None:
 @click.option(
     "--output-path",
     type=click.Path(),
-    help="Write results.json and request logs to this directory",
+    help="Write eval_results.json and request logs to this directory",
 )
 @click.option(
     "--log-requests",
