@@ -177,25 +177,21 @@ def evaluate(
     results: dict[str, TaskResult] = {}
     total_seconds = 0.0
 
-    async def _run() -> None:
-        nonlocal total_seconds
-        for modality in modalities:
-            if modality not in TASKS:
-                raise ValueError(
-                    f"Unknown modality: {modality}. Available: {list(TASKS.keys())}"
-                )
-            task = TASKS[modality]
-            result, request_logs = await run_task(task, config, max_samples, seed)
-            if output_path and log_requests:
-                requests_file = output_path / f"request_log_{task.modality}.jsonl"
-                _write_requests_jsonl(requests_file, request_logs)
-                logger.info(
-                    f"Request logs for {modality} dataset written to: {requests_file}"
-                )
-            results[modality] = result
-            total_seconds += result["elapsed_seconds"]
-
-    asyncio.run(_run())
+    for modality in modalities:
+        if modality not in TASKS:
+            raise ValueError(
+                f"Unknown modality: {modality}. Available: {list(TASKS.keys())}"
+            )
+        task = TASKS[modality]
+        result, request_logs = asyncio.run(run_task(task, config, max_samples, seed))
+        if output_path and log_requests:
+            requests_file = output_path / f"request_log_{task.modality}.jsonl"
+            _write_requests_jsonl(requests_file, request_logs)
+            logger.info(
+                f"Request logs for {modality} dataset written to: {requests_file}"
+            )
+        results[modality] = result
+        total_seconds += result["elapsed_seconds"]
 
     eval_result: EvalResult = {
         "config": {"max_samples": max_samples, "model": config.model},
