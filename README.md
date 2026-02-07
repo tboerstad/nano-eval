@@ -58,9 +58,12 @@ Options:
 ```python
 from nano_eval import evaluate
 
-# Assumes a local server at 127.0.0.1:8000 or :8080
-# with a single model listed at /v1/models
-result = evaluate(modalities=["text"], max_samples=100)
+result = evaluate(
+    modalities=["text"],
+    base_url="http://127.0.0.1:8000/v1",
+    model="meta-llama/Llama-3.2-1B-Instruct",
+    max_samples=100,
+)
 print(f"Accuracy: {result['results']['text']['metrics']['exact_match']:.1%}")
 ```
 
