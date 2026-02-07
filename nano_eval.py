@@ -215,7 +215,7 @@ def _print_results_table(result: EvalResult) -> None:
     print("------  --------  -------  --------  -------------  -------------")
     for r in result["results"].values():
         print(
-            f"{r['modality']:<6}  {r['metrics']['exact_match']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}  {int(r['tokens_per_second']):>13}"
+            f"{r['modality']:<6}  {r['metrics']['accuracy']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}  {int(r['tokens_per_second']):>13}"
         )
 
 

@@ -125,7 +125,7 @@ class TestE2E:
                 assert result.exit_code == 0, result.output
 
         results = json.loads((tmp_path / "eval_results.json").read_text())
-        assert results["results"]["text"]["metrics"]["exact_match"] == 0.7
+        assert results["results"]["text"]["metrics"]["accuracy"] == 0.7
         assert results["results"]["text"]["samples_hash"] == GSM8K_HASH
 
         requests = [
@@ -139,13 +139,13 @@ class TestE2E:
         assert requests[0]["request_id"] == 0
         assert requests[0]["target"] == "18"
         assert requests[0]["response"] == "The final answer is 18"
-        assert requests[0]["exact_match"] == 1.0
+        assert requests[0]["score"] == 1.0
         assert requests[0]["stop_reason"] == "stop"
         assert requests[0]["output_tokens"] == 5
         assert "duration_seconds" in requests[0]
         assert isinstance(requests[0]["duration_seconds"], float)
         assert requests[3]["target"] == "540"
-        assert requests[3]["exact_match"] == 0.0
+        assert requests[3]["score"] == 0.0
 
     def test_chartqa_evaluation(self, tmp_path):
         """ChartQA evaluation with real dataset, mocked API."""
@@ -206,7 +206,7 @@ class TestE2E:
                 assert result.exit_code == 0, result.output
 
         results = json.loads((tmp_path / "eval_results.json").read_text())
-        assert results["results"]["vision"]["metrics"]["exact_match"] == 0.7
+        assert results["results"]["vision"]["metrics"]["accuracy"] == 0.7
         assert results["results"]["vision"]["samples_hash"] == CHARTQA_HASH
 
         requests = [
@@ -220,13 +220,13 @@ class TestE2E:
         assert requests[0]["request_id"] == 0
         assert requests[0]["target"] == "14"
         assert requests[0]["response"] == "FINAL ANSWER: 14"
-        assert requests[0]["exact_match"] == 1.0
+        assert requests[0]["score"] == 1.0
         assert requests[0]["stop_reason"] == "stop"
         assert requests[0]["output_tokens"] == 10
         assert "duration_seconds" in requests[0]
         assert isinstance(requests[0]["duration_seconds"], float)
         assert requests[4]["target"] == "23"
-        assert requests[4]["exact_match"] == 0.0
+        assert requests[4]["score"] == 0.0
 
 
 class TestCLI:
