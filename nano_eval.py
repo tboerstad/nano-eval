@@ -111,7 +111,7 @@ def _write_requests_jsonl(filepath: Path, requests: list[RequestLogEntry]) -> No
             f.write(json.dumps(request, ensure_ascii=False) + "\n")
 
 
-async def evaluate(
+def evaluate(
     modalities: list[str],
     base_url: str | None = None,
     model: str | None = None,
@@ -183,7 +183,7 @@ async def evaluate(
                 f"Unknown modality: {modality}. Available: {list(TASKS.keys())}"
             )
         task = TASKS[modality]
-        result, request_logs = await run_task(task, config, max_samples, seed)
+        result, request_logs = asyncio.run(run_task(task, config, max_samples, seed))
         if output_path and log_requests:
             requests_file = output_path / f"request_log_{task.modality}.jsonl"
             _write_requests_jsonl(requests_file, request_logs)
@@ -297,19 +297,17 @@ def main(
     if verbose >= 3:  # -vvv: DEBUG for httpx
         logging.getLogger("httpx").setLevel(logging.DEBUG)
 
-    result = asyncio.run(
-        evaluate(
-            modalities=list(modalities),
-            base_url=base_url,
-            model=model,
-            api_key=api_key,
-            max_concurrent=max_concurrent,
-            gen_kwargs=_parse_kwargs(gen_kwargs),
-            max_samples=max_samples,
-            output_path=Path(output_path) if output_path else None,
-            log_requests=log_requests,
-            seed=seed,
-        )
+    result = evaluate(
+        modalities=list(modalities),
+        base_url=base_url,
+        model=model,
+        api_key=api_key,
+        max_concurrent=max_concurrent,
+        gen_kwargs=_parse_kwargs(gen_kwargs),
+        max_samples=max_samples,
+        output_path=Path(output_path) if output_path else None,
+        log_requests=log_requests,
+        seed=seed,
     )
 
     _print_results_table(result)
