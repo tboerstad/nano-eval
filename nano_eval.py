@@ -1,7 +1,7 @@
 """
 nano-eval CLI entry point.
 
-CLI args → APIConfig → evaluate() → TASKS[type]() → JSON output
+CLI args → APIConfig → evaluate() → TASKS[modality]() → JSON output
 """
 
 from __future__ import annotations
@@ -112,7 +112,7 @@ def _write_requests_jsonl(filepath: Path, requests: list[RequestLogEntry]) -> No
 
 
 async def evaluate(
-    types: list[str],
+    modalities: list[str],
     base_url: str | None = None,
     model: str | None = None,
     api_key: str = "",
@@ -124,17 +124,17 @@ async def evaluate(
     seed: int = 42,
 ) -> EvalResult:
     """
-    Run evaluations for specified types.
+    Run evaluations for specified modalities.
 
     Args:
-        types: List of types to evaluate ("text" or "vision")
+        modalities: List of modalities to evaluate ("text" or "vision")
         base_url: OpenAI-compatible API endpoint. Auto-detected from 127.0.0.1:8000/8080 if omitted.
         model: Model name. Auto-detected if endpoint serves exactly one model.
         api_key: Bearer token for API authentication
         gen_kwargs: API params like temperature, max_tokens, seed
         max_samples: Optional limit on samples per task
         output_path: If provided, write results.json to this directory
-        log_requests: If True, also write requests_{type}.jsonl files
+        log_requests: If True, also write requests_{modality}.jsonl files
 
     Returns:
         EvalResult with per-task metrics and metadata
@@ -177,20 +177,20 @@ async def evaluate(
     results: dict[str, TaskResult] = {}
     total_seconds = 0.0
 
-    for type_name in types:
-        if type_name not in TASKS:
+    for modality in modalities:
+        if modality not in TASKS:
             raise ValueError(
-                f"Unknown type: {type_name}. Available: {list(TASKS.keys())}"
+                f"Unknown modality: {modality}. Available: {list(TASKS.keys())}"
             )
-        task = TASKS[type_name]
+        task = TASKS[modality]
         result, request_logs = await run_task(task, config, max_samples, seed)
         if output_path and log_requests:
-            requests_file = output_path / f"request_log_{task.task_type}.jsonl"
+            requests_file = output_path / f"request_log_{task.modality}.jsonl"
             _write_requests_jsonl(requests_file, request_logs)
             logger.info(
-                f"Request logs for {type_name} dataset written to: {requests_file}"
+                f"Request logs for {modality} dataset written to: {requests_file}"
             )
-        results[type_name] = result
+        results[modality] = result
         total_seconds += result["elapsed_seconds"]
 
     eval_result: EvalResult = {
@@ -215,19 +215,19 @@ def _print_results_table(result: EvalResult) -> None:
     print("------  --------  -------  --------  -------------  -------------")
     for r in result["results"].values():
         print(
-            f"{r['task_type']:<6}  {r['metrics']['exact_match']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}  {int(r['tokens_per_second']):>13}"
+            f"{r['modality']:<6}  {r['metrics']['exact_match']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}  {int(r['tokens_per_second']):>13}"
         )
 
 
 @click.command()
 @click.option(
-    "-t",
-    "--type",
-    "types",
+    "-m",
+    "--modality",
+    "modalities",
     type=click.Choice(["text", "vision"]),
     required=True,
     multiple=True,
-    help="Type to evaluate (can be repeated)",
+    help="Modality to evaluate (can be repeated)",
 )
 @click.option(
     "--base-url",
@@ -263,7 +263,7 @@ def _print_results_table(result: EvalResult) -> None:
 )
 @click.version_option(version=version("nano-eval"), prog_name="nano-eval")
 def main(
-    types: tuple[str, ...],
+    modalities: tuple[str, ...],
     base_url: str | None,
     model: str | None,
     api_key: str,
@@ -277,7 +277,7 @@ def main(
 ) -> None:
     """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
 
-    Example: nano-eval -t text
+    Example: nano-eval -m text
     """
     if verbose < 1:  # Default: clean output with custom formatter
         handler = logging.StreamHandler()
@@ -299,7 +299,7 @@ def main(
 
     result = asyncio.run(
         evaluate(
-            types=list(types),
+            modalities=list(modalities),
             base_url=base_url,
             model=model,
             api_key=api_key,

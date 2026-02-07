@@ -108,7 +108,7 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
 
 chartqa = Task(
     name="chartqa",
-    task_type="vision",
+    modality="vision",
     samples=samples,
     score=score,
 )

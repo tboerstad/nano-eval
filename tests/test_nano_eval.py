@@ -91,7 +91,7 @@ class TestE2E:
 
         task = Task(
             name="gsm8k_cot_llama",
-            task_type="text",
+            modality="text",
             samples=lambda n, seed: real_samples,
             score=gsm8k_score,
         )
@@ -114,7 +114,7 @@ class TestE2E:
                 result = runner.invoke(
                     main,
                     [
-                        "--type=text",
+                        "--modality=text",
                         "--base-url=http://test.com/v1",
                         "--max-samples=10",
                         "--output-path",
@@ -176,7 +176,7 @@ class TestE2E:
 
         task = Task(
             name="chartqa",
-            task_type="vision",
+            modality="vision",
             samples=lambda n, seed: real_samples,
             score=chartqa_score,
         )
@@ -194,7 +194,7 @@ class TestE2E:
                 result = runner.invoke(
                     main,
                     [
-                        "--type=vision",
+                        "--modality=vision",
                         "--base-url=http://test.com/v1",
                         "--model=test",
                         "--max-samples=10",

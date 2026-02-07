@@ -147,7 +147,7 @@ def score(response: str, target: str) -> float:
 
 gsm8k_cot_llama = Task(
     name="gsm8k_cot_llama",
-    task_type="text",
+    modality="text",
     samples=samples,
     score=score,
 )
