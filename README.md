@@ -98,6 +98,12 @@ When using `--output-path`, an `eval_results.json` file is generated:
 }
 ```
 
+With `--log-requests`, a `request_log_{modality}.jsonl` is written per modality:
+
+```json
+{"request_id": 0, "target": "4", "prompt": "What is 2+2?", "response": "The answer is 4. The final answer is 4", "exact_match": 1.0, "stop_reason": "stop", "input_tokens": 52, "output_tokens": 12, "duration_seconds": 0.83}
+```
+
 ---
 
 Inspired by [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness).
