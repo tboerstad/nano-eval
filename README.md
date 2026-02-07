@@ -3,7 +3,7 @@
 ## Quickstart
 
 ```bash
-uvx nano-eval -t text -t vision --max-samples 100
+uvx nano-eval -m text -m vision --max-samples 100
 
 # prints:
 Task    Accuracy  Samples  Duration  Output Tokens  Per Req Tok/s
@@ -14,10 +14,10 @@ vision    72.0%      100       37s           8714           1894
 
 > **Note:** This tool is for eyeballing the accuracy of a model. One use case is comparing accuracy between inference frameworks (e.g., vLLM vs SGLang vs MAX running the same model).
 
-## Supported Types
+## Supported Modalities
 
-| Type | Dataset | Description |
-|------|---------|-------------|
+| Modality | Dataset | Description |
+|----------|---------|-------------|
 | `text` | gsm8k_cot_llama | Grade school math with chain-of-thought (8-shot) |
 | `vision` | HuggingFaceM4/ChartQA | Chart question answering with images |
 
@@ -29,10 +29,10 @@ Usage: nano-eval [OPTIONS]
 
   Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
 
-  Example: nano-eval -t text
+  Example: nano-eval -m text
 
 Options:
-  -t, --type [text|vision]        Type to evaluate (can be repeated)
+  -m, --modality [text|vision]     Modality to evaluate (can be repeated)
                                   [required]
   --base-url TEXT                 OpenAI-compatible API endpoint; tries
                                   127.0.0.1:8000/8080 if omitted
@@ -60,7 +60,7 @@ import asyncio
 from nano_eval import evaluate, EvalResult
 
 result: EvalResult = asyncio.run(evaluate(
-    types=["text"],
+    modalities=["text"],
     max_samples=100,
 ))
 text_result = result["results"]["text"]
@@ -91,7 +91,7 @@ When using `--output-path`, a `results.json` file is generated:
       "num_samples": 100,
       "samples_hash": "12a1e9404db6afe810290a474d69cfebdaffefd0b56e48ac80e1fec0f286d659",
       "task": "gsm8k_cot_llama",
-      "task_type": "text",
+      "modality": "text",
       "total_input_tokens": 106965,
       "total_output_tokens": 11873,
       "tokens_per_second": 7658.994842036105

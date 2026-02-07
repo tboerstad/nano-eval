@@ -1,7 +1,7 @@
 """
 Task registry for nano-eval.
 
-Maps type to Task instances:
+Maps modality to Task instances:
 - text: gsm8k_cot_llama (8-shot grade school math with chain-of-thought)
 - vision: chartqa (multimodal chart understanding)
 """

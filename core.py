@@ -67,7 +67,7 @@ class TaskResult(TypedDict):
     num_samples: int
     samples_hash: str
     task: str
-    task_type: str
+    modality: str
     total_input_tokens: int
     total_output_tokens: int
     tokens_per_second: float
@@ -104,7 +104,7 @@ class Task:
     """Minimal task definition: a loader of samples + a scoring function."""
 
     name: str
-    task_type: str  # "text" or "vision"
+    modality: str
     samples: Callable[[int | None, int | None], list[Sample]]  # (max_samples, seed)
     score: Callable[[str, str], float]  # (response, target) -> score
 
@@ -308,11 +308,11 @@ async def run_task(
     prompts = [s.prompt for s in samples]
 
     logger.info(
-        f"Starting {task.task_type} ({task.name}) eval: "
+        f"Starting {task.modality} ({task.name}) eval: "
         f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
     )
     t0 = time.perf_counter()
-    responses = await complete(prompts, config, f"Running {task.task_type} eval")
+    responses = await complete(prompts, config, f"Running {task.modality} eval")
     elapsed = time.perf_counter() - t0
 
     # Log warning if any responses did not complete with "stop"
@@ -360,7 +360,7 @@ async def run_task(
         num_samples=n,
         samples_hash=samples_hash,
         task=task.name,
-        task_type=task.task_type,
+        modality=task.modality,
         total_input_tokens=total_input_tokens,
         total_output_tokens=total_output_tokens,
         tokens_per_second=total_tokens / total_duration,
