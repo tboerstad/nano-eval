@@ -56,14 +56,12 @@ Options:
 ### Python API
 
 ```python
-from nano_eval import evaluate, EvalResult
+from nano_eval import evaluate
 
-result: EvalResult = evaluate(
-    modalities=["text"],
-    max_samples=100,
-)
-text_result = result["results"]["text"]
-print(f"Accuracy: {text_result['metrics']['exact_match']:.1%}")
+# Assumes a local server at 127.0.0.1:8000 or :8080
+# with a single model listed at /v1/models
+result = evaluate(modalities=["text"], max_samples=100)
+print(f"Accuracy: {result['results']['text']['metrics']['exact_match']:.1%}")
 ```
 
 ## Example Output
