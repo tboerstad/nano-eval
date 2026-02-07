@@ -101,7 +101,17 @@ When using `--output-path`, an `eval_results.json` file is generated:
 With `--log-requests`, a `request_log_{modality}.jsonl` is written per modality:
 
 ```json
-{"request_id": 0, "target": "4", "prompt": "What is 2+2?", "response": "4", "exact_match": 1.0, "stop_reason": "stop", "input_tokens": 7, "output_tokens": 1, "duration_seconds": 0.83}
+{
+  "request_id": 0,
+  "target": "4",
+  "prompt": "What is 2+2?",
+  "response": "4",
+  "exact_match": 1.0,
+  "stop_reason": "stop",
+  "input_tokens": 7,
+  "output_tokens": 1,
+  "duration_seconds": 0.83
+}
 ```
 
 ---
