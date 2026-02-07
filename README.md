@@ -56,13 +56,12 @@ Options:
 ### Python API
 
 ```python
-import asyncio
 from nano_eval import evaluate, EvalResult
 
-result: EvalResult = asyncio.run(evaluate(
+result: EvalResult = evaluate(
     modalities=["text"],
     max_samples=100,
-))
+)
 text_result = result["results"]["text"]
 print(f"Accuracy: {text_result['metrics']['exact_match']:.1%}")
 ```
