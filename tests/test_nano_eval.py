@@ -38,21 +38,21 @@ GSM8K_RESPONSES = {
 # ChartQA: 10 mock responses keyed by prompt hash (7 correct, 3 wrong = 70% accuracy)
 # fmt: off
 CHARTQA_RESPONSES = {
-    "0ad231": "FINAL ANSWER: 6",      # ✓ target=6
-    "e4b999": "FINAL ANSWER: 3",      # ✓ target=3
-    "46d9da": "FINAL ANSWER: No",     # ✓ target=No
-    "4b62c8": "FINAL ANSWER: 14",     # ✓ target=14
-    "c362e0": "FINAL ANSWER: 62",     # ✓ target=62
-    "cc97c4": "FINAL ANSWER: 999",    # ✗ target=23
-    "85801e": "FINAL ANSWER: wrong",  # ✗ target=Yes
-    "ae07dd": "FINAL ANSWER: 0.03",   # ✓ target=0.03
-    "c26baf": "FINAL ANSWER: 0.57",   # ✓ target=0.57
-    "72eade": "FINAL ANSWER: wrong",  # ✗ target=Inspired
+    "56bad2": "FINAL ANSWER: 6",      # ✓ target=6
+    "cd1864": "FINAL ANSWER: 3",      # ✓ target=3
+    "c9bed6": "FINAL ANSWER: No",     # ✓ target=No
+    "1c18a4": "FINAL ANSWER: 14",     # ✓ target=14
+    "5fa180": "FINAL ANSWER: 62",     # ✓ target=62
+    "d1281b": "FINAL ANSWER: 999",    # ✗ target=23
+    "61c68c": "FINAL ANSWER: wrong",  # ✗ target=Yes
+    "7f2622": "FINAL ANSWER: 0.03",   # ✓ target=0.03
+    "8e7b90": "FINAL ANSWER: 0.57",   # ✓ target=0.57
+    "59352a": "FINAL ANSWER: wrong",  # ✗ target=Inspired
 }
 # fmt: on
 
 GSM8K_HASH = "1330276a7b9c8140e39e0d966882feb6898dba391dd376c639c2b9d5cbe0464e"
-CHARTQA_HASH = "2a438c0c529d34540bcf9565ab806b3668336f60fad2275ca4c098804b54c43c"
+CHARTQA_HASH = "ae624878040716c83288e8acc51cd3a71ad65210a274cf9a54f06e9dd8c566a5"
 
 
 class TestE2E:
