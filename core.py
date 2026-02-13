@@ -207,7 +207,7 @@ def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
                     "image_url": {"url": f"data:image/png;base64,{b64}"},
                 }
             )
-    content.append({"type": "text", "text": text.replace("<image>", "").strip()})
+    content.append({"type": "text", "text": text.strip()})
     return [{"role": "user", "content": content}]
 
 
