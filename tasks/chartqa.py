@@ -28,7 +28,7 @@ _NUMERIC_CLEAN_RE = re.compile(r"[$,%]")
 def _format_chartqa_prompt(query: str) -> str:
     """Format ChartQA prompt."""
     return (
-        f"<image>You are provided a chart image and will be asked a question. "
+        f"You are provided a chart image and will be asked a question. "
         f"You have to think through your answer and provide a step-by-step solution. "
         f'Once you have the solution, write the final answer in at most a few words at the end with the phrase "FINAL ANSWER:". '
         f"The question is: {query}\n"
