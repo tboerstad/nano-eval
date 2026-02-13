@@ -25,7 +25,7 @@ _NUMERIC_CLEAN_RE = re.compile(r"[$,%]")
 
 
 def _format_chartqa_prompt(query: str) -> str:
-    """Format ChartQA prompt (matches lm-eval's default chartqa.yaml template)."""
+    """Format ChartQA prompt."""
     return (
         f"{query}\n"
         f"Analyze the image and question carefully, using step-by-step reasoning.\n"
