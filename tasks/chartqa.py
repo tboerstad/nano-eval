@@ -18,21 +18,30 @@ logger = logging.getLogger("nano_eval.tasks.chartqa")
 
 _CHARTQA_REVISION = "b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5"
 
-# Extracts answer after "FINAL ANSWER:" up to newline or end (prompt instructs model to use this)
-# Non-greedy (.+?) stops at first newline to avoid capturing extra text
-_FINAL_ANSWER_RE = re.compile(r"FINAL ANSWER:\s*(.+?)(?:\n|$)", re.IGNORECASE)
+# Extracts answer after "Final Answer:" up to newline or end
+_FINAL_ANSWER_RE = re.compile(r"Final Answer:\s*(.+?)(?:\n|$)", re.IGNORECASE)
 # Strip currency/percent symbols for numeric comparison: "$1,234%" -> "1234"
 _NUMERIC_CLEAN_RE = re.compile(r"[$,%]")
 
 
 def _format_chartqa_prompt(query: str) -> str:
-    """Format ChartQA prompt."""
+    """Format ChartQA prompt (matches lm-eval's default chartqa.yaml template)."""
     return (
-        f"You are provided a chart image and will be asked a question. "
-        f"You have to think through your answer and provide a step-by-step solution. "
-        f'Once you have the solution, write the final answer in at most a few words at the end with the phrase "FINAL ANSWER:". '
-        f"The question is: {query}\n"
-        f"Let's think step by step."
+        f"{query}\n"
+        f"Analyze the image and question carefully, using step-by-step reasoning.\n"
+        f"First, describe any image provided in detail. "
+        f"Then, present your reasoning. "
+        f"And finally your final answer in this format:\n"
+        f"Final Answer: <answer>\n"
+        f"where <answer> follows the following instructions:\n"
+        f"- <answer> should should be a single phrase or number.\n"
+        f"- <answer> should not paraphrase or reformat the text in the image.\n"
+        f"- If <answer> is a ratio, it should be a decimal value like 0.25 instead of 1:4.\n"
+        f"- If the question is a Yes/No question, <answer> should be Yes/No.\n"
+        f"- If <answer> is a number, it should not contain any units.\n"
+        f"- If <answer> is a percentage, it should include a % sign.\n"
+        f"- If <answer> is an entity, it should include the full label from the graph.\n"
+        f"IMPORTANT: Remember, to end your answer with Final Answer: <answer>."
     )
 
 
