@@ -28,17 +28,17 @@ class EvalResult(TypedDict):
 class _LevelPrefixFormatter(logging.Formatter):
     """Prefixes WARNING/ERROR messages with their level, passes INFO through clean."""
 
-    def format(self, record: logging.LogRecord) -> str:
+    def format(self, record):
         if record.levelno >= logging.WARNING:
             return f"{record.levelname}: {record.getMessage()}"
         return record.getMessage()
 
 
-def _parse_kwargs(s: str) -> dict[str, Any]:
+def _parse_kwargs(s):
     """Parse 'key=value,key=value' into dict."""
     if not s:
         return {}
-    result: dict[str, Any] = {}
+    result = {}
     for pair in s.split(","):
         if "=" not in pair:
             raise ValueError(f"Invalid format '{pair}': expected 'key=value'")
@@ -50,7 +50,7 @@ def _parse_kwargs(s: str) -> dict[str, Any]:
     return result
 
 
-def _check_endpoint(url: str, api_key: str = "") -> None:
+def _check_endpoint(url, api_key=""):
     """Verify API endpoint is reachable."""
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     try:
@@ -66,7 +66,7 @@ def _check_endpoint(url: str, api_key: str = "") -> None:
         raise ValueError(f"No response from {url}\nIs the server running?")
 
 
-def _detect_base_url(api_key: str = "") -> str:
+def _detect_base_url(api_key=""):
     """Try common local ports to find an API server."""
     candidates = [
         "http://127.0.0.1:8000/v1",
@@ -86,7 +86,7 @@ def _detect_base_url(api_key: str = "") -> str:
     )
 
 
-def _list_models(base_url: str, api_key: str = "") -> list[str]:
+def _list_models(base_url, api_key=""):
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     resp = httpx.get(f"{base_url}/models", headers=headers, timeout=30)
     resp.raise_for_status()
@@ -143,7 +143,7 @@ def evaluate(
     if output_path:
         output_path.mkdir(parents=True, exist_ok=True)
 
-    results: dict[str, TaskResult] = {}
+    results = {}
     total_seconds = 0.0
 
     for modality in modalities:
@@ -182,7 +182,7 @@ def evaluate(
     return eval_result
 
 
-def _print_results_table(result: EvalResult) -> None:
+def _print_results_table(result):
     print("\nTask    Accuracy  Samples  Duration  Output Tokens  Per Req Tok/s")
     print("------  --------  -------  --------  -------------  -------------")
     for r in result["results"].values():

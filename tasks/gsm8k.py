@@ -1,9 +1,6 @@
 """GSM8K evaluation: 8-shot chain-of-thought, normalized answer matching."""
 
-from __future__ import annotations
-
 import re
-from typing import Any
 
 from core import Prompt, Sample, Task
 
@@ -57,15 +54,15 @@ _NUM_RE = re.compile(r"-?[$0-9.,]{2,}|-?[0-9]+")
 _FINAL_ANSWER_RE = re.compile(rf"The final answer is ({_NUM_RE.pattern})")
 
 
-def _normalize(text: str) -> str:
+def _normalize(text):
     text = re.sub(r"[$,]", "", text)
     text = re.sub(r"(?s).*#### ", "", text)
     text = re.sub(r"\.$", "", text)
     return text.lower().strip()
 
 
-def _format_gsm8k_prompt(question: str) -> list[dict[str, str]]:
-    messages: list[dict[str, str]] = []
+def _format_gsm8k_prompt(question):
+    messages = []
     for q, a in GSM8K_FEWSHOT:
         messages.append({"role": "user", "content": _GSM8K_TEMPLATE.format(question=q)})
         messages.append({"role": "assistant", "content": a})
@@ -75,14 +72,14 @@ def _format_gsm8k_prompt(question: str) -> list[dict[str, str]]:
     return messages
 
 
-def _parse_target(answer: str) -> str:
+def _parse_target(answer):
     parts = answer.split("####")
     if len(parts) < 2:
         return answer.strip()
     return parts[-1].strip()
 
 
-def _extract_gsm8k_answer(response: str) -> str:
+def _extract_gsm8k_answer(response):
     if match := _FINAL_ANSWER_RE.search(response):
         return match.group(1)
     matches = _NUM_RE.findall(response)
@@ -91,14 +88,14 @@ def _extract_gsm8k_answer(response: str) -> str:
     return response
 
 
-def _extract(doc: dict[str, Any]) -> Sample:
+def _extract(doc):
     return Sample(
         prompt=Prompt(text=_format_gsm8k_prompt(doc["question"])),
         target=_parse_target(doc["answer"]),
     )
 
 
-def _score(response: str, target: str) -> float:
+def _score(response, target):
     extracted = _extract_gsm8k_answer(response)
     return 1.0 if _normalize(extracted) == _normalize(target) else 0.0
 
