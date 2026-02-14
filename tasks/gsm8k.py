@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from core import Sample, Task, TextPrompt, load_hf_samples
+from core import Prompt, Sample, Task, load_hf_samples
 
 _GSM8K_REVISION = "cc7b047b6e5bb11b4f1af84efc572db110a51b3c"
 
@@ -110,7 +110,7 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
 
     def extract(doc: dict[str, Any]) -> Sample:
         return Sample(
-            prompt=TextPrompt(text=_format_gsm8k_prompt(doc["question"])),
+            prompt=Prompt(text=_format_gsm8k_prompt(doc["question"])),
             target=_parse_target(doc["answer"]),
         )
 
@@ -133,7 +133,6 @@ def score(response: str, target: str) -> float:
 
 gsm8k_cot_llama = Task(
     name="gsm8k_cot_llama",
-    modality="text",
     samples=samples,
     score=score,
 )

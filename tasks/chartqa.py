@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from core import Sample, Task, VisionPrompt, load_hf_samples
+from core import Prompt, Sample, Task, load_hf_samples
 
 _CHARTQA_REVISION = "b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5"
 
@@ -73,7 +73,7 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
         label = doc["label"]
         target = label[0] if isinstance(label, list) else str(label)
         return Sample(
-            prompt=VisionPrompt(
+            prompt=Prompt(
                 text=_format_chartqa_prompt(doc["query"]),
                 images=[doc["image"]],
             ),
@@ -92,7 +92,6 @@ def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sam
 
 chartqa = Task(
     name="chartqa",
-    modality="vision",
     samples=samples,
     score=score,
 )

@@ -91,7 +91,6 @@ class TestE2E:
 
         task = Task(
             name="gsm8k_cot_llama",
-            modality="text",
             samples=lambda n, seed: real_samples,
             score=gsm8k_score,
         )
@@ -176,7 +175,6 @@ class TestE2E:
 
         task = Task(
             name="chartqa",
-            modality="vision",
             samples=lambda n, seed: real_samples,
             score=chartqa_score,
         )

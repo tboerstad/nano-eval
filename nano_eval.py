@@ -193,10 +193,10 @@ def evaluate(
             )
         task = TASKS[modality]
         result, request_logs = asyncio.run(
-            run_task(task, config, max_samples, dataset_seed)
+            run_task(task, config, modality, max_samples, dataset_seed)
         )
         if output_path and log_requests:
-            requests_file = output_path / f"request_log_{task.modality}.jsonl"
+            requests_file = output_path / f"request_log_{modality}.jsonl"
             _write_requests_jsonl(requests_file, request_logs)
             logger.info(
                 f"Request logs for {modality} dataset written to: {requests_file}"
