@@ -15,6 +15,8 @@ import httpx
 if TYPE_CHECKING:
     from core import TaskResult
 
+__all__ = ["evaluate", "EvalResult"]
+
 logger = logging.getLogger("nano_eval")
 
 
