@@ -35,6 +35,28 @@ class Prompt:
     text: str | list[dict[str, str]]
     images: list[Any] = field(default_factory=list)
 
+    def to_messages(self) -> list[dict[str, Any]]:
+        if self.images:
+            assert isinstance(self.text, str)
+            content: list[dict[str, Any]] = [
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/png;base64,{b64}"},
+                }
+                for img in self.images
+                if (b64 := _encode_image(img))
+            ]
+            content.append({"type": "text", "text": self.text.strip()})
+            return [{"role": "user", "content": content}]
+        if isinstance(self.text, list):
+            return self.text
+        return [{"role": "user", "content": self.text}]
+
+    def text_repr(self) -> str:
+        if isinstance(self.text, list):
+            return "\n".join(f"{m['role']}: {m['content']}" for m in self.text)
+        return self.text
+
 
 @dataclass
 class Sample:
@@ -80,8 +102,7 @@ class Task:
         try:
             result: list[Sample] = []
             for split in self.splits:
-                remaining = None if max_samples is None else max_samples - len(result)
-                if remaining is not None and remaining <= 0:
+                if max_samples is not None and len(result) >= max_samples:
                     break
                 ds = datasets.load_dataset(
                     self.dataset,
@@ -93,10 +114,9 @@ class Task:
                 assert isinstance(ds, Dataset)
                 if seed is not None:
                     ds = ds.shuffle(seed=seed)
-                if remaining is not None:
-                    ds = ds.select(range(min(remaining, len(ds))))
-                for doc in ds:
-                    result.append(self.extract(doc))
+                if max_samples is not None:
+                    ds = ds.select(range(min(max_samples - len(result), len(ds))))
+                result.extend(self.extract(doc) for doc in ds)
             return result
         finally:
             ds_config.HF_HUB_OFFLINE = old_offline
@@ -123,9 +143,10 @@ async def _request(
     resp = await client.post(url, json=payload)
     if resp.is_success:
         data = resp.json()
+        choice = data["choices"][0]
         return {
-            "answer": data["choices"][0]["message"]["content"],
-            "stop_reason": data["choices"][0]["finish_reason"],
+            "answer": choice["message"]["content"],
+            "stop_reason": choice["finish_reason"],
             "input_tokens": data["usage"]["prompt_tokens"],
             "output_tokens": data["usage"]["completion_tokens"],
             "duration_seconds": time.perf_counter() - t0,
@@ -151,20 +172,11 @@ async def complete(
     ) as client:
         tasks: list[asyncio.Task[dict[str, Any]]] = []
         for prompt in prompts:
-            if prompt.images:
-                assert isinstance(prompt.text, str)
-                messages = _build_vision_message(prompt.text, prompt.images)
-            elif isinstance(prompt.text, list):
-                messages = prompt.text
-            else:
-                messages = [{"role": "user", "content": prompt.text}]
-
             payload: dict[str, Any] = {
                 "model": config.model,
-                "messages": messages,
+                "messages": prompt.to_messages(),
                 **config.gen_kwargs,
             }
-
             tasks.append(asyncio.create_task(_request(client, config.url, payload)))
 
         try:
@@ -176,16 +188,6 @@ async def complete(
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             raise
-
-
-def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
-    content: list[dict[str, Any]] = [
-        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}}
-        for img in images
-        if (b64 := _encode_image(img))
-    ]
-    content.append({"type": "text", "text": text.strip()})
-    return [{"role": "user", "content": content}]
 
 
 def _encode_image(image: Any) -> str:
@@ -205,17 +207,11 @@ def _encode_image(image: Any) -> str:
     raise TypeError(f"Unsupported image type: {type(image).__name__}")
 
 
-def _prompt_text(prompt: Prompt) -> str:
-    if isinstance(prompt.text, list):
-        return "\n".join(f"{m['role']}: {m['content']}" for m in prompt.text)
-    return prompt.text
-
-
 def compute_samples_hash(samples: list[Sample]) -> str:
     """SHA256 hash of all samples for reproducibility tracking."""
     hasher = hashlib.sha256()
     for s in samples:
-        hasher.update(_prompt_text(s.prompt).encode())
+        hasher.update(s.prompt.text_repr().encode())
         for img in s.prompt.images:
             hasher.update(_encode_image(img).encode())
         hasher.update(s.target.encode())
@@ -243,7 +239,7 @@ async def run_task(
     elapsed = time.perf_counter() - t0
 
     reason_counts = Counter(r["stop_reason"] for r in responses)
-    non_stop = sum(c for reason, c in reason_counts.items() if reason != "stop")
+    non_stop = len(responses) - reason_counts.get("stop", 0)
     if non_stop:
         logger.warning(
             f"{non_stop} response(s) did not finish with 'stop'. "
@@ -270,7 +266,7 @@ async def run_task(
         {
             "request_id": i,
             "target": s.target,
-            "prompt": _prompt_text(s.prompt),
+            "prompt": s.prompt.text_repr(),
             "response": r["answer"],
             "score": score,
             "stop_reason": r["stop_reason"],
