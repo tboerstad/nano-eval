@@ -13,10 +13,9 @@ import respx
 from click.testing import CliRunner
 from httpx import Response
 
-from core import Task
 from nano_eval import main
-from tasks.chartqa import samples as load_chartqa_samples, score as chartqa_score
-from tasks.gsm8k import samples as load_gsm8k_samples, score as gsm8k_score
+from tasks.chartqa import chartqa
+from tasks.gsm8k import gsm8k_cot_llama
 
 # GSM8K: 10 mock responses keyed by prompt hash (7 correct, 3 wrong = 70% accuracy)
 # Hashes are for the last user message (the question) in multiturn fewshot format
@@ -60,7 +59,7 @@ class TestE2E:
 
     def test_gsm8k_evaluation(self, tmp_path):
         """GSM8K evaluation with real dataset, mocked API, auto-selected model."""
-        real_samples = load_gsm8k_samples(10)
+        real_samples = gsm8k_cot_llama.load_samples(10)
 
         def api_response(request):
             body = json.loads(request.content)
@@ -89,12 +88,6 @@ class TestE2E:
                 },
             )
 
-        task = Task(
-            name="gsm8k_cot_llama",
-            samples=lambda n, seed: real_samples,
-            score=gsm8k_score,
-        )
-
         with respx.mock:
             respx.get("http://test.com/v1/chat/completions").mock(
                 return_value=Response(200)
@@ -108,7 +101,9 @@ class TestE2E:
                 side_effect=api_response
             )
 
-            with patch.dict("tasks.TASKS", {"text": task}):
+            with patch.object(
+                type(gsm8k_cot_llama), "load_samples", return_value=real_samples
+            ):
                 runner = CliRunner()
                 result = runner.invoke(
                     main,
@@ -148,7 +143,7 @@ class TestE2E:
 
     def test_chartqa_evaluation(self, tmp_path):
         """ChartQA evaluation with real dataset, mocked API."""
-        real_samples = load_chartqa_samples(10)
+        real_samples = chartqa.load_samples(10)
 
         def api_response(request):
             body = json.loads(request.content)
@@ -173,12 +168,6 @@ class TestE2E:
                 },
             )
 
-        task = Task(
-            name="chartqa",
-            samples=lambda n, seed: real_samples,
-            score=chartqa_score,
-        )
-
         with respx.mock:
             respx.get("http://test.com/v1/chat/completions").mock(
                 return_value=Response(200)
@@ -187,7 +176,7 @@ class TestE2E:
                 side_effect=api_response
             )
 
-            with patch.dict("tasks.TASKS", {"vision": task}):
+            with patch.object(type(chartqa), "load_samples", return_value=real_samples):
                 runner = CliRunner()
                 result = runner.invoke(
                     main,

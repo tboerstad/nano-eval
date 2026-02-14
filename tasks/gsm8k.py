@@ -1,10 +1,7 @@
 """
 GSM8K evaluation - grade school math with chain-of-thought.
 
-Defines:
-- samples(): generator yielding (prompt, target) pairs
-- score(): normalized string matching
-- gsm8k_cot_llama: Task instance for registration
+Defines gsm8k_cot_llama: Task instance with 8-shot CoT prompting and normalized scoring.
 """
 
 from __future__ import annotations
@@ -12,7 +9,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from core import Prompt, Sample, Task, load_hf_samples
+from core import Prompt, Sample, Task
 
 _GSM8K_REVISION = "cc7b047b6e5bb11b4f1af84efc572db110a51b3c"
 
@@ -105,27 +102,14 @@ def _extract_gsm8k_answer(response: str) -> str:
     return response
 
 
-def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
-    """Load GSM8K samples: (formatted_prompt, target_answer)."""
-
-    def extract(doc: dict[str, Any]) -> Sample:
-        return Sample(
-            prompt=Prompt(text=_format_gsm8k_prompt(doc["question"])),
-            target=_parse_target(doc["answer"]),
-        )
-
-    return load_hf_samples(
-        dataset="openai/gsm8k",
-        revision=_GSM8K_REVISION,
-        splits=["test", "train"],
-        extract=extract,
-        max_samples=max_samples,
-        seed=seed,
-        config_name="main",
+def _extract(doc: dict[str, Any]) -> Sample:
+    return Sample(
+        prompt=Prompt(text=_format_gsm8k_prompt(doc["question"])),
+        target=_parse_target(doc["answer"]),
     )
 
 
-def score(response: str, target: str) -> float:
+def _score(response: str, target: str) -> float:
     """Score GSM8K response: 1.0 if normalized answer matches, else 0.0."""
     extracted = _extract_gsm8k_answer(response)
     return 1.0 if _normalize(extracted) == _normalize(target) else 0.0
@@ -133,6 +117,10 @@ def score(response: str, target: str) -> float:
 
 gsm8k_cot_llama = Task(
     name="gsm8k_cot_llama",
-    samples=samples,
-    score=score,
+    dataset="openai/gsm8k",
+    revision=_GSM8K_REVISION,
+    splits=["test", "train"],
+    extract=_extract,
+    score=_score,
+    config_name="main",
 )

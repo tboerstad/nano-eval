@@ -3,10 +3,9 @@ Core utilities for nano-eval.
 
 Responsibilities:
 - ApiConfig: endpoint, model, concurrency, timeout
-- Sample/Task: minimal task abstraction (generator + scorer)
+- Sample/Task: declarative task definition (dataset config + scorer)
 - complete(): async batch chat completions (OpenAI-compatible)
 - run_task(): evaluate a Task, return TaskResult
-- load_hf_samples(): shared HuggingFace dataset loading
 - _encode_image(): PIL→base64; rejects remote URLs
 """
 
@@ -19,8 +18,7 @@ import logging
 import math
 import time
 from collections import Counter
-from collections.abc import Callable, Generator
-from contextlib import contextmanager
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
@@ -92,11 +90,61 @@ class Sample:
 
 @dataclass(frozen=True)
 class Task:
-    """Minimal task definition: a loader of samples + a scoring function."""
+    """Declarative task definition: dataset config + scoring function."""
 
     name: str
-    samples: Callable[[int | None, int | None], list[Sample]]  # (max_samples, seed)
-    score: Callable[[str, str], float]  # (response, target) -> score
+    dataset: str
+    revision: str
+    splits: list[str]
+    extract: Callable[[dict[str, Any]], Sample]
+    score: Callable[[str, str], float]
+    config_name: str | None = None
+
+    def load_samples(
+        self, max_samples: int | None = None, seed: int | None = None
+    ) -> list[Sample]:
+        """Load samples from a HuggingFace dataset across splits."""
+        # TODO Upstream fix. HF datasets logging is too noisy
+        datasets.utils.logging.set_verbosity_error()
+
+        # Enable offline mode if dataset is already cached (avoids HEAD requests)
+        cache_path = (
+            Path(HF_HUB_CACHE)
+            / f"datasets--{self.dataset.replace('/', '--')}"
+            / "snapshots"
+            / self.revision
+        )
+        cached = cache_path.is_dir()
+        logger.info(
+            f"Cache {'hit' if cached else 'miss'} for {self.dataset}, HF_HOME={HF_HOME}"
+        )
+        old_offline = ds_config.HF_HUB_OFFLINE
+        if cached:
+            ds_config.HF_HUB_OFFLINE = True
+
+        try:
+            result: list[Sample] = []
+            for split in self.splits:
+                remaining = None if max_samples is None else max_samples - len(result)
+                if remaining is not None and remaining <= 0:
+                    break
+                ds = datasets.load_dataset(
+                    self.dataset,
+                    name=self.config_name,
+                    split=split,
+                    revision=self.revision,
+                    download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
+                )
+                assert isinstance(ds, Dataset)
+                if seed is not None:
+                    ds = ds.shuffle(seed=seed)
+                if remaining is not None:
+                    ds = ds.select(range(min(remaining, len(ds))))
+                for doc in ds:
+                    result.append(self.extract(doc))
+            return result
+        finally:
+            ds_config.HF_HUB_OFFLINE = old_offline
 
 
 @dataclass
@@ -286,7 +334,7 @@ async def run_task(
     Returns:
         TaskResult with metrics, sample count, elapsed time, and per-sample data
     """
-    samples = task.samples(max_samples, seed)
+    samples = task.load_samples(max_samples, seed)
     samples_hash = compute_samples_hash(samples)
     prompts = [s.prompt for s in samples]
 
@@ -349,70 +397,3 @@ async def run_task(
         tokens_per_second=total_tokens / total_duration if total_duration else 0.0,
     )
     return result, request_logs
-
-
-@contextmanager
-def _offline_if_cached(
-    dataset: str, revision: str
-) -> Generator[tuple[bool, Path], None, None]:
-    """Context manager: enable HF offline mode if dataset is cached (avoids HEAD requests).
-
-    Yields:
-        Tuple of (cached: bool, hf_home: Path) where cached indicates if dataset
-        is in cache and hf_home is the HuggingFace cache directory.
-    """
-    hub_path = (
-        Path(HF_HUB_CACHE)
-        / f"datasets--{dataset.replace('/', '--')}"
-        / "snapshots"
-        / revision
-    )
-    cached = hub_path.is_dir()
-
-    if cached:
-        old = ds_config.HF_HUB_OFFLINE
-        ds_config.HF_HUB_OFFLINE = True
-    try:
-        yield cached, Path(HF_HOME)
-    finally:
-        if cached:
-            ds_config.HF_HUB_OFFLINE = old
-
-
-def load_hf_samples(
-    dataset: str,
-    revision: str,
-    splits: list[str],
-    extract: Callable[[dict[str, Any]], Sample],
-    max_samples: int | None,
-    seed: int | None,
-    config_name: str | None = None,
-) -> list[Sample]:
-    """Load samples from a HuggingFace dataset across splits."""
-    # TODO Upstream fix. HF datasets logging is too noisy
-    datasets.utils.logging.set_verbosity_error()
-
-    with _offline_if_cached(dataset, revision) as (cached, hf_home):
-        logger.info(
-            f"Cache {'hit' if cached else 'miss'} for {dataset}, HF_HOME={hf_home}"
-        )
-        result: list[Sample] = []
-        for split in splits:
-            remaining = None if max_samples is None else max_samples - len(result)
-            if remaining is not None and remaining <= 0:
-                break
-            ds = datasets.load_dataset(
-                dataset,
-                name=config_name,
-                split=split,
-                revision=revision,
-                download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
-            )
-            assert isinstance(ds, Dataset)
-            if seed is not None:
-                ds = ds.shuffle(seed=seed)
-            if remaining is not None:
-                ds = ds.select(range(min(remaining, len(ds))))
-            for doc in ds:
-                result.append(extract(doc))
-        return result
