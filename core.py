@@ -25,8 +25,6 @@ from tqdm.asyncio import tqdm_asyncio
 
 from nano_eval import Metrics, TaskResult
 
-__all__: list[str] = []
-
 logger = logging.getLogger("nano_eval.core")
 
 
