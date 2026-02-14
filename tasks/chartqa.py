@@ -9,12 +9,10 @@ Defines:
 
 from __future__ import annotations
 
-import logging
 import re
+from typing import Any
 
-from core import Sample, Task, VisionPrompt, offline_if_cached
-
-logger = logging.getLogger("nano_eval.tasks.chartqa")
+from core import Sample, Task, VisionPrompt, load_hf_samples
 
 _CHARTQA_REVISION = "b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5"
 
@@ -70,49 +68,26 @@ def score(response: str, target: str) -> float:
 
 def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
     """Load ChartQA samples: ((prompt, [image]), target)."""
-    import datasets
-    from datasets import Dataset, DownloadMode
 
-    # TODO Upstream fix. HF datasets logging is too noisy
-    datasets.utils.logging.set_verbosity_error()
-
-    with offline_if_cached("HuggingFaceM4/ChartQA", _CHARTQA_REVISION) as (
-        cached,
-        hf_home,
-    ):
-        logger.info(
-            f"Cache {'hit' if cached else 'miss'} for vision dataset (ChartQA), "
-            f"HF_HOME={hf_home}"
+    def extract(doc: dict[str, Any]) -> Sample:
+        label = doc["label"]
+        target = label[0] if isinstance(label, list) else str(label)
+        return Sample(
+            prompt=VisionPrompt(
+                text=_format_chartqa_prompt(doc["query"]),
+                images=[doc["image"]],
+            ),
+            target=target,
         )
-        result: list[Sample] = []
-        for split in ["test", "val", "train"]:
-            remaining = None if max_samples is None else max_samples - len(result)
-            if remaining is not None and remaining <= 0:
-                break
-            ds = datasets.load_dataset(
-                "HuggingFaceM4/ChartQA",
-                split=split,
-                revision=_CHARTQA_REVISION,
-                download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
-            )
-            assert isinstance(ds, Dataset)
-            if seed is not None:
-                ds = ds.shuffle(seed=seed)
-            if remaining is not None:
-                ds = ds.select(range(min(remaining, len(ds))))
-            for doc in ds:
-                label = doc["label"]
-                target = label[0] if isinstance(label, list) else str(label)
-                result.append(
-                    Sample(
-                        prompt=VisionPrompt(
-                            text=_format_chartqa_prompt(doc["query"]),
-                            images=[doc["image"]],
-                        ),
-                        target=target,
-                    )
-                )
-        return result
+
+    return load_hf_samples(
+        dataset="HuggingFaceM4/ChartQA",
+        revision=_CHARTQA_REVISION,
+        splits=["test", "val", "train"],
+        extract=extract,
+        max_samples=max_samples,
+        seed=seed,
+    )
 
 
 chartqa = Task(

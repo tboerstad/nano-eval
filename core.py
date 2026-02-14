@@ -6,7 +6,7 @@ Responsibilities:
 - Sample/Task: minimal task abstraction (generator + scorer)
 - complete(): async batch chat completions (OpenAI-compatible)
 - run_task(): evaluate a Task, return TaskResult
-- _normalize(): text normalization for comparison
+- load_hf_samples(): shared HuggingFace dataset loading
 - _encode_image(): PIL→base64; rejects remote URLs
 """
 
@@ -17,7 +17,6 @@ import base64
 import hashlib
 import logging
 import math
-import re
 import time
 from collections import Counter
 from collections.abc import Callable
@@ -25,13 +24,12 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import datasets.config as ds_config
 import httpx
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
-from typing_extensions import TypedDict
 
 logger = logging.getLogger("nano_eval.core")
 
@@ -232,14 +230,6 @@ def _encode_image(image: Any) -> str:
     raise TypeError(f"Unsupported image type: {type(image).__name__}")
 
 
-def _normalize(text: str) -> str:
-    """Normalize text for comparison."""
-    text = re.sub(r"[$,]", "", text)
-    text = re.sub(r"(?s).*#### ", "", text)
-    text = re.sub(r"\.$", "", text)
-    return text.lower().strip()
-
-
 def _prompt_to_str(prompt: Input) -> str:
     """Extract text from prompt (handles TextPrompt and VisionPrompt)."""
     if isinstance(prompt, VisionPrompt):
@@ -369,7 +359,7 @@ async def run_task(
 
 
 @contextmanager
-def offline_if_cached(dataset: str, revision: str):
+def _offline_if_cached(dataset: str, revision: str):
     """Context manager: enable HF offline mode if dataset is cached (avoids HEAD requests).
 
     Yields:
@@ -394,3 +384,45 @@ def offline_if_cached(dataset: str, revision: str):
     finally:
         if cached:
             ds_config.HF_HUB_OFFLINE = old
+
+
+def load_hf_samples(
+    dataset: str,
+    revision: str,
+    splits: list[str],
+    extract: Callable[[dict[str, Any]], Sample],
+    max_samples: int | None,
+    seed: int | None,
+    config_name: str | None = None,
+) -> list[Sample]:
+    """Load samples from a HuggingFace dataset across splits."""
+    import datasets
+    from datasets import Dataset, DownloadMode
+
+    # TODO Upstream fix. HF datasets logging is too noisy
+    datasets.utils.logging.set_verbosity_error()
+
+    with _offline_if_cached(dataset, revision) as (cached, hf_home):
+        logger.info(
+            f"Cache {'hit' if cached else 'miss'} for {dataset}, HF_HOME={hf_home}"
+        )
+        result: list[Sample] = []
+        for split in splits:
+            remaining = None if max_samples is None else max_samples - len(result)
+            if remaining is not None and remaining <= 0:
+                break
+            ds = datasets.load_dataset(
+                dataset,
+                name=config_name,
+                split=split,
+                revision=revision,
+                download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
+            )
+            assert isinstance(ds, Dataset)
+            if seed is not None:
+                ds = ds.shuffle(seed=seed)
+            if remaining is not None:
+                ds = ds.select(range(min(remaining, len(ds))))
+            for doc in ds:
+                result.append(extract(doc))
+        return result

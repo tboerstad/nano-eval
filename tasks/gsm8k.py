@@ -9,12 +9,10 @@ Defines:
 
 from __future__ import annotations
 
-import logging
 import re
+from typing import Any
 
-from core import Sample, Task, TextPrompt, _normalize, offline_if_cached
-
-logger = logging.getLogger("nano_eval.tasks.gsm8k")
+from core import Sample, Task, TextPrompt, load_hf_samples
 
 _GSM8K_REVISION = "cc7b047b6e5bb11b4f1af84efc572db110a51b3c"
 
@@ -65,6 +63,14 @@ _GSM8K_TEMPLATE = (
 _NUM_RE = re.compile(r"-?[$0-9.,]{2,}|-?[0-9]+")
 
 
+def _normalize(text: str) -> str:
+    """Normalize text for GSM8K answer comparison."""
+    text = re.sub(r"[$,]", "", text)
+    text = re.sub(r"(?s).*#### ", "", text)
+    text = re.sub(r"\.$", "", text)
+    return text.lower().strip()
+
+
 def _format_gsm8k_prompt(question: str) -> list[dict[str, str]]:
     """Format GSM8K prompt with few-shot examples as multiturn messages."""
     messages: list[dict[str, str]] = []
@@ -101,42 +107,22 @@ def _extract_gsm8k_answer(response: str) -> str:
 
 def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
     """Load GSM8K samples: (formatted_prompt, target_answer)."""
-    import datasets
-    from datasets import Dataset, DownloadMode
 
-    # TODO Upstream fix. HF datasets logging is too noisy
-    datasets.utils.logging.set_verbosity_error()
-
-    with offline_if_cached("openai/gsm8k", _GSM8K_REVISION) as (cached, hf_home):
-        logger.info(
-            f"Cache {'hit' if cached else 'miss'} for text dataset (gsm8k_cot_llama), "
-            f"HF_HOME={hf_home}"
+    def extract(doc: dict[str, Any]) -> Sample:
+        return Sample(
+            prompt=TextPrompt(text=_format_gsm8k_prompt(doc["question"])),
+            target=_parse_target(doc["answer"]),
         )
-        result: list[Sample] = []
-        for split in ["test", "train"]:
-            remaining = None if max_samples is None else max_samples - len(result)
-            if remaining is not None and remaining <= 0:
-                break
-            ds = datasets.load_dataset(
-                "openai/gsm8k",
-                "main",
-                split=split,
-                revision=_GSM8K_REVISION,
-                download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
-            )
-            assert isinstance(ds, Dataset)
-            if seed is not None:
-                ds = ds.shuffle(seed=seed)
-            if remaining is not None:
-                ds = ds.select(range(min(remaining, len(ds))))
-            for doc in ds:
-                result.append(
-                    Sample(
-                        prompt=TextPrompt(text=_format_gsm8k_prompt(doc["question"])),
-                        target=_parse_target(doc["answer"]),
-                    )
-                )
-        return result
+
+    return load_hf_samples(
+        dataset="openai/gsm8k",
+        revision=_GSM8K_REVISION,
+        splits=["test", "train"],
+        extract=extract,
+        max_samples=max_samples,
+        seed=seed,
+        config_name="main",
+    )
 
 
 def score(response: str, target: str) -> float:
