@@ -399,6 +399,7 @@ def load_hf_samples(
     import datasets
     from datasets import Dataset, DownloadMode
 
+    # TODO Upstream fix. HF datasets logging is too noisy
     datasets.utils.logging.set_verbosity_error()
 
     with _offline_if_cached(dataset, revision) as (cached, hf_home):
