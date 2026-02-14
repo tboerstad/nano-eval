@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from core import Prompt, Sample, Task
+from tasks._scoring import clean_number, extract_final_answer
 
 _GSM8K_REVISION = "cc7b047b6e5bb11b4f1af84efc572db110a51b3c"
 
@@ -58,8 +59,7 @@ _FINAL_ANSWER_RE = re.compile(rf"The final answer is ({_NUM_RE.pattern})")
 
 
 def _normalize(text: str) -> str:
-    text = re.sub(r"[$,]", "", text)
-    text = re.sub(r"(?s).*#### ", "", text)
+    text = clean_number(text)
     text = re.sub(r"\.$", "", text)
     return text.lower().strip()
 
@@ -82,9 +82,10 @@ def _parse_target(answer: str) -> str:
     return parts[-1].strip()
 
 
-def _extract_gsm8k_answer(response: str) -> str:
-    if match := _FINAL_ANSWER_RE.search(response):
-        return match.group(1)
+def _extract_answer(response: str) -> str:
+    result = extract_final_answer(response, _FINAL_ANSWER_RE)
+    if result is not None:
+        return result
     matches = _NUM_RE.findall(response)
     if matches:
         return matches[-1]
@@ -99,7 +100,7 @@ def _extract(doc: dict[str, Any]) -> Sample:
 
 
 def _score(response: str, target: str) -> float:
-    extracted = _extract_gsm8k_answer(response)
+    extracted = _extract_answer(response)
     return 1.0 if _normalize(extracted) == _normalize(target) else 0.0
 
 

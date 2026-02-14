@@ -6,11 +6,11 @@ import re
 from typing import Any
 
 from core import Prompt, Sample, Task
+from tasks._scoring import clean_number, extract_final_answer
 
 _CHARTQA_REVISION = "b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5"
 
 _FINAL_ANSWER_RE = re.compile(r"Final Answer:\s*(.+?)(?:\n|$)", re.IGNORECASE)
-_NUMERIC_CLEAN_RE = re.compile(r"[$,%]")
 
 
 def _format_chartqa_prompt(query: str) -> str:
@@ -33,18 +33,19 @@ def _format_chartqa_prompt(query: str) -> str:
     )
 
 
+def _extract_answer(response: str) -> str:
+    return extract_final_answer(response, _FINAL_ANSWER_RE) or response.strip()
+
+
 def _score(response: str, target: str) -> float:
-    if match := _FINAL_ANSWER_RE.search(response):
-        pred = match.group(1).strip()
-    else:
-        pred = response.strip()
+    pred = _extract_answer(response)
 
     if pred.lower() == target.lower():
         return 1.0
 
     try:
-        pred_n = float(_NUMERIC_CLEAN_RE.sub("", pred))
-        target_n = float(_NUMERIC_CLEAN_RE.sub("", target))
+        pred_n = float(clean_number(pred))
+        target_n = float(clean_number(target))
         if target_n == 0:
             return 1.0 if pred_n == 0 else 0.0
         if abs(pred_n - target_n) / abs(target_n) <= 0.05:
