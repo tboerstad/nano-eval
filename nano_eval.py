@@ -276,16 +276,20 @@ def main(
 
     Example: nano-eval -m text
     """
-    if verbose:
-        logging.basicConfig(level=logging.INFO, format=logging.BASIC_FORMAT)
-        logger.setLevel(logging.DEBUG)
-    else:
+    if verbose < 1:
         handler = logging.StreamHandler()
         handler.setFormatter(_LevelPrefixFormatter())
         logging.basicConfig(level=logging.INFO, handlers=[handler])
+    else:
+        logging.basicConfig(level=logging.INFO, format=logging.BASIC_FORMAT)
 
-    httpx_levels = [logging.WARNING, logging.WARNING, logging.INFO, logging.DEBUG]
-    logging.getLogger("httpx").setLevel(httpx_levels[min(verbose, 3)])
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    if verbose >= 1:
+        logger.setLevel(logging.DEBUG)
+    if verbose >= 2:
+        logging.getLogger("httpx").setLevel(logging.INFO)
+    if verbose >= 3:
+        logging.getLogger("httpx").setLevel(logging.DEBUG)
 
     result = evaluate(
         modalities=list(modalities),
