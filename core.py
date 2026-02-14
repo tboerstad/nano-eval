@@ -19,7 +19,7 @@ import logging
 import math
 import time
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -154,6 +154,7 @@ async def complete(
     Args:
         prompts: List of prompts (TextPrompt or VisionPrompt)
         config: API configuration (includes gen_kwargs for temperature, max_tokens, etc.)
+        progress_desc: Label shown on the tqdm progress bar
     """
     headers = {"Content-Type": "application/json"}
     if config.api_key:
@@ -324,7 +325,7 @@ async def run_task(
         _log_sample_results(samples, responses, scores)
 
     accuracy = sum(scores) / n if n else 0.0
-    stderr = math.sqrt(accuracy * (1 - accuracy) / (n - 1)) if n > 1 else 0.0
+    stderr = math.sqrt(accuracy * (1 - accuracy) / n) if n > 0 else 0.0
 
     logger.debug(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
 
@@ -356,13 +357,15 @@ async def run_task(
         modality=task.modality,
         total_input_tokens=total_input_tokens,
         total_output_tokens=total_output_tokens,
-        tokens_per_second=total_tokens / total_duration,
+        tokens_per_second=total_tokens / total_duration if total_duration else 0.0,
     )
     return result, request_logs
 
 
 @contextmanager
-def _offline_if_cached(dataset: str, revision: str):
+def _offline_if_cached(
+    dataset: str, revision: str
+) -> Generator[tuple[bool, Path], None, None]:
     """Context manager: enable HF offline mode if dataset is cached (avoids HEAD requests).
 
     Yields:
