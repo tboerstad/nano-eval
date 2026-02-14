@@ -51,7 +51,6 @@ def _parse_kwargs(s: str) -> dict[str, Any]:
 
 
 def _check_endpoint(url: str, api_key: str = "") -> None:
-    """Verify API endpoint is reachable."""
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     try:
         resp = httpx.get(url, headers=headers, timeout=10)
@@ -67,7 +66,6 @@ def _check_endpoint(url: str, api_key: str = "") -> None:
 
 
 def _detect_base_url(api_key: str = "") -> str:
-    """Try common local ports to find an API server."""
     candidates = [
         "http://127.0.0.1:8000/v1",
         "http://127.0.0.1:8080/v1",
@@ -106,7 +104,6 @@ def evaluate(
     dataset_seed: int = 42,
     request_timeout: int = 300,
 ) -> EvalResult:
-    """Run evaluations for specified modalities and return results dict."""
     from core import ApiConfig, run_task
     from tasks import TASKS
 

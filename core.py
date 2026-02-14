@@ -45,24 +45,18 @@ class TaskResult(TypedDict):
 
 @dataclass(frozen=True)
 class Prompt:
-    """Evaluation prompt with optional images for multimodal tasks."""
-
     text: str | list[dict[str, str]]
     images: list[Any] = field(default_factory=list)
 
 
 @dataclass
 class Sample:
-    """Prompt + expected target."""
-
     prompt: Prompt
     target: str
 
 
 @dataclass(frozen=True)
 class Task:
-    """Dataset config + scoring function."""
-
     name: str
     dataset: str
     revision: str
@@ -74,8 +68,6 @@ class Task:
     def load_samples(
         self, max_samples: int | None = None, seed: int | None = None
     ) -> list[Sample]:
-        """Load samples from HuggingFace dataset across splits."""
-        # TODO Upstream fix. HF datasets logging is too noisy
         datasets.utils.logging.set_verbosity_error()
 
         cache_path = (
@@ -119,8 +111,6 @@ class Task:
 
 @dataclass
 class ApiConfig:
-    """API endpoint configuration."""
-
     url: str
     model: str
     api_key: str = ""
@@ -153,8 +143,7 @@ async def complete(
     config: ApiConfig,
     progress_desc: str = "Running evals",
 ) -> list[dict[str, Any]]:
-    """Run batch of chat completions with concurrency control."""
-    headers: dict[str, str] = {"Content-Type": "application/json"}
+    headers: dict[str, str] = {}
     if config.api_key:
         headers["Authorization"] = f"Bearer {config.api_key}"
 
@@ -162,7 +151,6 @@ async def complete(
         limits=httpx.Limits(max_connections=config.max_concurrent),
         timeout=httpx.Timeout(config.timeout),
         headers=headers,
-        trust_env=True,
     ) as client:
         tasks: list[asyncio.Task[dict[str, Any]]] = []
         for prompt in prompts:
@@ -208,7 +196,6 @@ def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
 
 
 def _encode_image(image: Any) -> str:
-    """Encode PIL image to base64, or pass through base64 string."""
     if isinstance(image, str):
         if image.startswith("http"):
             raise ValueError("Remote image URLs are not supported.")
@@ -231,7 +218,6 @@ def _prompt_text(prompt: Prompt) -> str:
 
 
 def compute_samples_hash(samples: list[Sample]) -> str:
-    """SHA256 hash of all samples for reproducibility tracking."""
     hasher = hashlib.sha256()
     for s in samples:
         hasher.update(_prompt_text(s.prompt).encode())
@@ -248,7 +234,6 @@ async def run_task(
     max_samples: int | None = None,
     seed: int | None = None,
 ) -> tuple[TaskResult, list[dict[str, Any]]]:
-    """Evaluate a task: load samples, run inference, compute scores."""
     samples = task.load_samples(max_samples, seed)
     samples_hash = compute_samples_hash(samples)
     prompts = [s.prompt for s in samples]

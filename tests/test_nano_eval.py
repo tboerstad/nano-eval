@@ -1,9 +1,4 @@
-"""
-End-to-end tests for nano-eval CLI.
-
-Tests use real datasets with mocked API responses via respx.
-Samples are loaded before mocking to avoid respx/proxy conflicts.
-"""
+"""Samples are loaded before mocking to avoid respx/proxy conflicts."""
 
 import hashlib
 import json
@@ -55,10 +50,7 @@ CHARTQA_HASH = "8df185292f416992aeb99cd981f041421128de58c736ba17e7a1fadc2acf3f7e
 
 
 class TestE2E:
-    """End-to-end tests with real datasets and mocked API responses."""
-
     def test_gsm8k_evaluation(self, tmp_path):
-        """GSM8K evaluation with real dataset, mocked API, auto-selected model."""
         real_samples = gsm8k_cot_llama.load_samples(10)
 
         def api_response(request):
@@ -142,7 +134,6 @@ class TestE2E:
         assert requests[3]["score"] == 0.0
 
     def test_chartqa_evaluation(self, tmp_path):
-        """ChartQA evaluation with real dataset, mocked API."""
         real_samples = chartqa.load_samples(10)
 
         def api_response(request):
@@ -217,10 +208,7 @@ class TestE2E:
 
 
 class TestCLI:
-    """Tests for CLI behavior."""
-
     def test_help_startup_time(self):
-        """CLI --help should complete quickly without importing heavy dependencies."""
         import subprocess
         import sys
         import time
