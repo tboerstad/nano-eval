@@ -123,7 +123,7 @@ def evaluate(
     request_timeout: int = 300,
 ) -> EvalResult:
     """Run evaluations for specified modalities and return results dict."""
-    from core import ApiConfig, run_task
+    from core import run_task
     from tasks import TASKS
 
     if base_url is None:
@@ -147,14 +147,7 @@ def evaluate(
                 "Please specify model explicitly."
             )
 
-    config = ApiConfig(
-        url=f"{base_url}/chat/completions",
-        model=model,
-        api_key=api_key,
-        max_concurrent=max_concurrent,
-        timeout=request_timeout,
-        gen_kwargs=gen_kwargs or {},
-    )
+    url = f"{base_url}/chat/completions"
 
     if output_path:
         output_path.mkdir(parents=True, exist_ok=True)
@@ -169,7 +162,18 @@ def evaluate(
             )
         task = TASKS[modality]
         result, request_logs = asyncio.run(
-            run_task(task, config, modality, max_samples, dataset_seed)
+            run_task(
+                task,
+                url=url,
+                model=model,
+                api_key=api_key,
+                max_concurrent=max_concurrent,
+                timeout=request_timeout,
+                gen_kwargs=gen_kwargs,
+                modality=modality,
+                max_samples=max_samples,
+                seed=dataset_seed,
+            )
         )
         if output_path and log_requests:
             requests_file = output_path / f"request_log_{modality}.jsonl"
@@ -183,7 +187,7 @@ def evaluate(
         total_seconds += result["elapsed_seconds"]
 
     eval_result = EvalResult(
-        config={"max_samples": max_samples, "model": config.model},
+        config={"max_samples": max_samples, "model": model},
         framework_version=version("nano-eval"),
         results=results,
         total_seconds=total_seconds,
