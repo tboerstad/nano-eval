@@ -70,6 +70,11 @@ def _check_endpoint(url: str, api_key: str = "") -> None:
     try:
         resp = httpx.get(url, headers=headers, timeout=10)
         # 404/405 mean server is running (GET not supported on chat/completions)
+        if resp.status_code in (401, 403):
+            raise ValueError(
+                f"Authentication failed ({resp.status_code}) at {url}\n"
+                "Check your --api-key value."
+            )
         if resp.status_code not in (404, 405):
             resp.raise_for_status()
     except httpx.HTTPError:
@@ -211,11 +216,11 @@ def evaluate(
 
 def _print_results_table(result: EvalResult) -> None:
     """Print a mini results table."""
-    print("\nTask    Accuracy  Samples  Duration  Output Tokens  Per Req Tok/s")
-    print("------  --------  -------  --------  -------------  -------------")
+    print("\nTask    Accuracy  Samples  Duration  Output Tokens  Output Tok/s")
+    print("------  --------  -------  --------  -------------  ------------")
     for r in result["results"].values():
         print(
-            f"{r['modality']:<6}  {r['metrics']['accuracy']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}  {int(r['tokens_per_second']):>13}"
+            f"{r['modality']:<6}  {r['metrics']['accuracy']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}  {int(r['output_tokens_per_second']):>12}"
         )
 
 
