@@ -1,4 +1,4 @@
-"""Core: ApiConfig, Task, Sample, complete(), run_task()."""
+"""Core data types and async evaluation engine."""
 
 from __future__ import annotations
 
@@ -45,24 +45,18 @@ class TaskResult(TypedDict):
 
 @dataclass(frozen=True)
 class Prompt:
-    """Evaluation prompt with optional images for multimodal tasks."""
-
     text: str | list[dict[str, str]]
     images: list[Any] = field(default_factory=list)
 
 
 @dataclass
 class Sample:
-    """Prompt + expected target."""
-
     prompt: Prompt
     target: str
 
 
 @dataclass(frozen=True)
 class Task:
-    """Dataset config + scoring function."""
-
     name: str
     dataset: str
     revision: str
@@ -119,8 +113,6 @@ class Task:
 
 @dataclass
 class ApiConfig:
-    """API endpoint configuration."""
-
     url: str
     model: str
     api_key: str = ""
