@@ -7,17 +7,31 @@ import json
 import logging
 from importlib.metadata import version
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import Any, TypedDict
 
 import click
 import httpx
 
-if TYPE_CHECKING:
-    from core import TaskResult
-
-__all__ = ["evaluate", "EvalResult"]
+__all__ = ["evaluate", "EvalResult", "Metrics", "TaskResult"]
 
 logger = logging.getLogger("nano_eval")
+
+
+class Metrics(TypedDict):
+    accuracy: float
+    accuracy_stderr: float
+
+
+class TaskResult(TypedDict):
+    elapsed_seconds: float
+    metrics: Metrics
+    num_samples: int
+    samples_hash: str
+    task: str
+    modality: str
+    total_input_tokens: int
+    total_output_tokens: int
+    tokens_per_second: float
 
 
 class EvalResult(TypedDict):

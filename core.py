@@ -13,7 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any
 
 import datasets
 import datasets.config as ds_config
@@ -23,26 +23,11 @@ from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
 
+from nano_eval import Metrics, TaskResult
+
 __all__: list[str] = []
 
 logger = logging.getLogger("nano_eval.core")
-
-
-class Metrics(TypedDict):
-    accuracy: float
-    accuracy_stderr: float
-
-
-class TaskResult(TypedDict):
-    elapsed_seconds: float
-    metrics: Metrics
-    num_samples: int
-    samples_hash: str
-    task: str
-    modality: str
-    total_input_tokens: int
-    total_output_tokens: int
-    tokens_per_second: float
 
 
 @dataclass(frozen=True)
