@@ -1,7 +1,7 @@
 """
 nano-eval CLI entry point.
 
-CLI args → APIConfig → evaluate() → TASKS[modality]() → JSON output
+CLI args → ApiConfig → evaluate() → TASKS[modality]() → JSON output
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ class EvalResult(TypedDict):
     total_seconds: float
 
 
-def _parse_kwargs(s: str) -> dict[str, str | int | float]:
+def _parse_kwargs(s: str) -> dict[str, Any]:
     """Parse 'key=value,key=value' into dict."""
     if not s:
         return {}
@@ -139,7 +139,7 @@ def evaluate(
     Returns:
         EvalResult with per-task metrics and metadata
     """
-    from core import APIConfig, run_task
+    from core import ApiConfig, run_task
     from tasks import TASKS
 
     if base_url is None:
@@ -163,7 +163,7 @@ def evaluate(
                 "Please specify model explicitly."
             )
 
-    config = APIConfig(
+    config = ApiConfig(
         url=f"{base_url}/chat/completions",
         model=model,
         api_key=api_key,
