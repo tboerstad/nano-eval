@@ -126,7 +126,8 @@ def evaluate(
     max_samples: int | None = None,
     output_path: Path | None = None,
     log_requests: bool = False,
-    seed: int = 42,
+    dataset_seed: int = 42,
+    request_timeout: int = 300,
 ) -> EvalResult:
     """
     Run evaluations for specified modalities.
@@ -140,6 +141,8 @@ def evaluate(
         max_samples: Optional limit on samples per task
         output_path: If provided, write results.json to this directory
         log_requests: If True, also write requests_{modality}.jsonl files
+        dataset_seed: Seed for shuffling dataset sample order
+        request_timeout: Timeout in seconds for each API request
 
     Returns:
         EvalResult with per-task metrics and metadata
@@ -173,6 +176,7 @@ def evaluate(
         model=model,
         api_key=api_key,
         max_concurrent=max_concurrent,
+        timeout=request_timeout,
         gen_kwargs=gen_kwargs or {},
     )
 
@@ -188,7 +192,9 @@ def evaluate(
                 f"Unknown modality: {modality}. Available: {list(TASKS.keys())}"
             )
         task = TASKS[modality]
-        result, request_logs = asyncio.run(run_task(task, config, max_samples, seed))
+        result, request_logs = asyncio.run(
+            run_task(task, config, max_samples, dataset_seed)
+        )
         if output_path and log_requests:
             requests_file = output_path / f"request_log_{task.modality}.jsonl"
             _write_requests_jsonl(requests_file, request_logs)
@@ -216,11 +222,11 @@ def evaluate(
 
 def _print_results_table(result: EvalResult) -> None:
     """Print a mini results table."""
-    print("\nTask    Accuracy  Samples  Duration  Output Tokens  Output Tok/s")
-    print("------  --------  -------  --------  -------------  ------------")
+    print("\nTask    Accuracy  Samples  Duration  Output Tokens  Per Req Tok/s")
+    print("------  --------  -------  --------  -------------  -------------")
     for r in result["results"].values():
         print(
-            f"{r['modality']:<6}  {r['metrics']['accuracy']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}  {int(r['output_tokens_per_second']):>12}"
+            f"{r['modality']:<6}  {r['metrics']['accuracy']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}  {int(r['tokens_per_second']):>13}"
         )
 
 
@@ -259,7 +265,15 @@ def _print_results_table(result: EvalResult) -> None:
     is_flag=True,
     help="Save per-request results as JSONL (requires --output-path)",
 )
-@click.option("--seed", default=42, show_default=True, help="Controls sample order")
+@click.option(
+    "--dataset-seed", default=42, show_default=True, help="Controls sample order"
+)
+@click.option(
+    "--request-timeout",
+    default=300,
+    show_default=True,
+    help="Timeout in seconds for each API request",
+)
 @click.option(
     "-v",
     "--verbose",
@@ -277,7 +291,8 @@ def main(
     max_samples: int | None,
     output_path: str | None,
     log_requests: bool,
-    seed: int,
+    dataset_seed: int,
+    request_timeout: int,
     verbose: int,
 ) -> None:
     """Evaluate LLMs on standardized tasks via OpenAI-compatible APIs.
@@ -312,7 +327,8 @@ def main(
         max_samples=max_samples,
         output_path=Path(output_path) if output_path else None,
         log_requests=log_requests,
-        seed=seed,
+        dataset_seed=dataset_seed,
+        request_timeout=request_timeout,
     )
 
     _print_results_table(result)

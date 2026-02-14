@@ -71,7 +71,7 @@ class TaskResult(TypedDict):
     modality: str
     total_input_tokens: int
     total_output_tokens: int
-    output_tokens_per_second: float
+    tokens_per_second: float
 
 
 @dataclass(frozen=True)
@@ -325,7 +325,7 @@ async def run_task(
         _log_sample_results(samples, responses, scores)
 
     accuracy = sum(scores) / n if n else 0.0
-    stderr = math.sqrt(accuracy * (1 - accuracy) / (n - 1)) if n > 1 else 0.0
+    stderr = math.sqrt(accuracy * (1 - accuracy) / n) if n > 0 else 0.0
 
     logger.debug(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
 
@@ -346,6 +346,7 @@ async def run_task(
     ]
     total_input_tokens = sum(r["input_tokens"] for r in responses)
     total_output_tokens = sum(r["output_tokens"] for r in responses)
+    total_tokens = total_input_tokens + total_output_tokens
     total_duration = sum(r["duration_seconds"] for r in responses)
     result = TaskResult(
         elapsed_seconds=elapsed,
@@ -356,9 +357,7 @@ async def run_task(
         modality=task.modality,
         total_input_tokens=total_input_tokens,
         total_output_tokens=total_output_tokens,
-        output_tokens_per_second=total_output_tokens / total_duration
-        if total_duration
-        else 0.0,
+        tokens_per_second=total_tokens / total_duration if total_duration else 0.0,
     )
     return result, request_logs
 
