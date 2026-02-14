@@ -179,15 +179,11 @@ async def complete(
 
 
 def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
-    content: list[dict[str, Any]] = []
-    for img in images:
-        if b64 := _encode_image(img):
-            content.append(
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/png;base64,{b64}"},
-                }
-            )
+    content: list[dict[str, Any]] = [
+        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}}
+        for img in images
+        if (b64 := _encode_image(img))
+    ]
     content.append({"type": "text", "text": text.strip()})
     return [{"role": "user", "content": content}]
 

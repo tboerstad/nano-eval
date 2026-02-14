@@ -75,26 +75,17 @@ def _format_gsm8k_prompt(question: str) -> list[dict[str, str]]:
     return messages
 
 
-def _parse_target(answer: str) -> str:
-    parts = answer.split("####")
-    if len(parts) < 2:
-        return answer.strip()
-    return parts[-1].strip()
-
-
 def _extract_gsm8k_answer(response: str) -> str:
     if match := _FINAL_ANSWER_RE.search(response):
         return match.group(1)
     matches = _NUM_RE.findall(response)
-    if matches:
-        return matches[-1]
-    return response
+    return matches[-1] if matches else response
 
 
 def _extract(doc: dict[str, Any]) -> Sample:
     return Sample(
         prompt=Prompt(text=_format_gsm8k_prompt(doc["question"])),
-        target=_parse_target(doc["answer"]),
+        target=doc["answer"].split("####")[-1].strip(),
     )
 
 
