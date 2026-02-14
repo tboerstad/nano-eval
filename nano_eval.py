@@ -7,12 +7,22 @@ import json
 import logging
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import click
 import httpx
 
+if TYPE_CHECKING:
+    from core import TaskResult
+
 logger = logging.getLogger("nano_eval")
+
+
+class EvalResult(TypedDict):
+    config: dict[str, Any]
+    framework_version: str
+    results: dict[str, TaskResult]
+    total_seconds: float
 
 
 class _LevelPrefixFormatter(logging.Formatter):
@@ -95,7 +105,7 @@ def evaluate(
     log_requests: bool = False,
     dataset_seed: int = 42,
     request_timeout: int = 300,
-) -> dict[str, Any]:
+) -> EvalResult:
     """Run evaluations for specified modalities and return results dict."""
     from core import ApiConfig, run_task
     from tasks import TASKS
@@ -133,7 +143,7 @@ def evaluate(
     if output_path:
         output_path.mkdir(parents=True, exist_ok=True)
 
-    results: dict[str, Any] = {}
+    results: dict[str, TaskResult] = {}
     total_seconds = 0.0
 
     for modality in modalities:
@@ -156,12 +166,12 @@ def evaluate(
         results[modality] = result
         total_seconds += result["elapsed_seconds"]
 
-    eval_result = {
-        "config": {"max_samples": max_samples, "model": config.model},
-        "framework_version": version("nano-eval"),
-        "results": results,
-        "total_seconds": total_seconds,
-    }
+    eval_result = EvalResult(
+        config={"max_samples": max_samples, "model": config.model},
+        framework_version=version("nano-eval"),
+        results=results,
+        total_seconds=total_seconds,
+    )
 
     if output_path:
         results_file = output_path / "eval_results.json"
@@ -172,7 +182,7 @@ def evaluate(
     return eval_result
 
 
-def _print_results_table(result: dict[str, Any]) -> None:
+def _print_results_table(result: EvalResult) -> None:
     print("\nTask    Accuracy  Samples  Duration  Output Tokens  Per Req Tok/s")
     print("------  --------  -------  --------  -------------  -------------")
     for r in result["results"].values():

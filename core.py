@@ -13,7 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import datasets
 import datasets.config as ds_config
@@ -24,6 +24,23 @@ from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
 
 logger = logging.getLogger("nano_eval.core")
+
+
+class Metrics(TypedDict):
+    accuracy: float
+    accuracy_stderr: float
+
+
+class TaskResult(TypedDict):
+    elapsed_seconds: float
+    metrics: Metrics
+    num_samples: int
+    samples_hash: str
+    task: str
+    modality: str
+    total_input_tokens: int
+    total_output_tokens: int
+    tokens_per_second: float
 
 
 @dataclass(frozen=True)
@@ -230,7 +247,7 @@ async def run_task(
     modality: str,
     max_samples: int | None = None,
     seed: int | None = None,
-) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+) -> tuple[TaskResult, list[dict[str, Any]]]:
     """Evaluate a task: load samples, run inference, compute scores."""
     samples = task.load_samples(max_samples, seed)
     samples_hash = compute_samples_hash(samples)
@@ -287,17 +304,17 @@ async def run_task(
     total_output = sum(r["output_tokens"] for r in responses)
     total_duration = sum(r["duration_seconds"] for r in responses)
 
-    result = {
-        "elapsed_seconds": elapsed,
-        "metrics": {"accuracy": accuracy, "accuracy_stderr": stderr},
-        "num_samples": n,
-        "samples_hash": samples_hash,
-        "task": task.name,
-        "modality": modality,
-        "total_input_tokens": total_input,
-        "total_output_tokens": total_output,
-        "tokens_per_second": (total_input + total_output) / total_duration
+    result = TaskResult(
+        elapsed_seconds=elapsed,
+        metrics=Metrics(accuracy=accuracy, accuracy_stderr=stderr),
+        num_samples=n,
+        samples_hash=samples_hash,
+        task=task.name,
+        modality=modality,
+        total_input_tokens=total_input,
+        total_output_tokens=total_output,
+        tokens_per_second=(total_input + total_output) / total_duration
         if total_duration
         else 0.0,
-    }
+    )
     return result, request_logs
