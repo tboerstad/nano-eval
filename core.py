@@ -1,13 +1,4 @@
-"""
-Core utilities for nano-eval.
-
-Responsibilities:
-- ApiConfig: endpoint, model, concurrency, timeout
-- Sample/Task: declarative task definition (dataset config + scorer)
-- complete(): async batch chat completions (OpenAI-compatible)
-- run_task(): evaluate a Task, return TaskResult
-- _encode_image(): PIL→base64; rejects remote URLs
-"""
+"""Core: ApiConfig, Task, Sample, complete(), run_task()."""
 
 from __future__ import annotations
 
@@ -22,7 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any
 
 import datasets
 import datasets.config as ds_config
@@ -35,43 +26,6 @@ from tqdm.asyncio import tqdm_asyncio
 logger = logging.getLogger("nano_eval.core")
 
 
-class Metrics(TypedDict):
-    accuracy: float
-    accuracy_stderr: float
-
-
-class ApiResponse(TypedDict):
-    answer: str
-    stop_reason: str
-    input_tokens: int
-    output_tokens: int
-    duration_seconds: float
-
-
-class RequestLogEntry(TypedDict):
-    request_id: int
-    target: str
-    prompt: str
-    response: str
-    score: float
-    stop_reason: str
-    input_tokens: int
-    output_tokens: int
-    duration_seconds: float
-
-
-class TaskResult(TypedDict):
-    elapsed_seconds: float
-    metrics: Metrics
-    num_samples: int
-    samples_hash: str
-    task: str
-    modality: str
-    total_input_tokens: int
-    total_output_tokens: int
-    tokens_per_second: float
-
-
 @dataclass(frozen=True)
 class Prompt:
     """Evaluation prompt with optional images for multimodal tasks."""
@@ -82,7 +36,7 @@ class Prompt:
 
 @dataclass
 class Sample:
-    """A single evaluation sample: prompt + expected target."""
+    """Prompt + expected target."""
 
     prompt: Prompt
     target: str
@@ -90,7 +44,7 @@ class Sample:
 
 @dataclass(frozen=True)
 class Task:
-    """Declarative task definition: dataset config + scoring function."""
+    """Dataset config + scoring function."""
 
     name: str
     dataset: str
@@ -103,11 +57,10 @@ class Task:
     def load_samples(
         self, max_samples: int | None = None, seed: int | None = None
     ) -> list[Sample]:
-        """Load samples from a HuggingFace dataset across splits."""
+        """Load samples from HuggingFace dataset across splits."""
         # TODO Upstream fix. HF datasets logging is too noisy
         datasets.utils.logging.set_verbosity_error()
 
-        # Enable offline mode if dataset is already cached (avoids HEAD requests)
         cache_path = (
             Path(HF_HUB_CACHE)
             / f"datasets--{self.dataset.replace('/', '--')}"
@@ -149,7 +102,7 @@ class Task:
 
 @dataclass
 class ApiConfig:
-    """API configuration."""
+    """API endpoint configuration."""
 
     url: str
     model: str
@@ -163,20 +116,18 @@ async def _request(
     client: httpx.AsyncClient,
     url: str,
     payload: dict[str, Any],
-) -> ApiResponse:
-    """Single request. Raises RuntimeError on failure."""
+) -> dict[str, Any]:
     t0 = time.perf_counter()
     resp = await client.post(url, json=payload)
-    duration = time.perf_counter() - t0
     if resp.is_success:
         data = resp.json()
-        return ApiResponse(
-            answer=data["choices"][0]["message"]["content"],
-            stop_reason=data["choices"][0]["finish_reason"],
-            input_tokens=data["usage"]["prompt_tokens"],
-            output_tokens=data["usage"]["completion_tokens"],
-            duration_seconds=duration,
-        )
+        return {
+            "answer": data["choices"][0]["message"]["content"],
+            "stop_reason": data["choices"][0]["finish_reason"],
+            "input_tokens": data["usage"]["prompt_tokens"],
+            "output_tokens": data["usage"]["completion_tokens"],
+            "duration_seconds": time.perf_counter() - t0,
+        }
     raise RuntimeError(f"Request failed: {resp.text}")
 
 
@@ -184,16 +135,9 @@ async def complete(
     prompts: list[Prompt],
     config: ApiConfig,
     progress_desc: str = "Running evals",
-) -> list[ApiResponse]:
-    """
-    Run batch of chat completions.
-
-    Args:
-        prompts: List of prompts (text-only or multimodal with images)
-        config: API configuration (includes gen_kwargs for temperature, max_tokens, etc.)
-        progress_desc: Label shown on the tqdm progress bar
-    """
-    headers = {"Content-Type": "application/json"}
+) -> list[dict[str, Any]]:
+    """Run batch of chat completions with concurrency control."""
+    headers: dict[str, str] = {"Content-Type": "application/json"}
     if config.api_key:
         headers["Authorization"] = f"Bearer {config.api_key}"
 
@@ -203,7 +147,7 @@ async def complete(
         headers=headers,
         trust_env=True,
     ) as client:
-        tasks: list[asyncio.Task[ApiResponse]] = []
+        tasks: list[asyncio.Task[dict[str, Any]]] = []
         for prompt in prompts:
             if prompt.images:
                 assert isinstance(prompt.text, str)
@@ -226,10 +170,6 @@ async def complete(
                 await tqdm_asyncio.gather(*tasks, desc=progress_desc, leave=False)
             )
         except BaseException:
-            # On any failure (including Ctrl-C), cancel all pending tasks and await
-            # them to properly "retrieve" their exceptions. Without this, Python logs
-            # "Task exception was never retrieved" for each concurrent task that failed.
-            # Using BaseException (not Exception) ensures cleanup runs on KeyboardInterrupt.
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -237,7 +177,6 @@ async def complete(
 
 
 def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
-    """Build OpenAI vision API message."""
     content: list[dict[str, Any]] = []
     for img in images:
         if b64 := _encode_image(img):
@@ -252,62 +191,33 @@ def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
 
 
 def _encode_image(image: Any) -> str:
-    """Encode PIL image to base64, or pass through string."""
+    """Encode PIL image to base64, or pass through base64 string."""
     if isinstance(image, str):
         if image.startswith("http"):
             raise ValueError("Remote image URLs are not supported.")
         return image
 
     if isinstance(image, Image.Image):
-        try:
-            # Convert to RGB if needed to avoid save errors with CMYK/palette modes
-            if image.mode not in ("RGB", "L"):
-                image = image.convert("RGB")
-            buf = BytesIO()
-            image.save(buf, format="PNG")
-            return base64.b64encode(buf.getvalue()).decode()
-        except Exception as e:
-            raise ValueError(f"Failed to encode image: {e}") from e
+        if image.mode not in ("RGB", "L"):
+            image = image.convert("RGB")
+        buf = BytesIO()
+        image.save(buf, format="PNG")
+        return base64.b64encode(buf.getvalue()).decode()
 
     raise TypeError(f"Unsupported image type: {type(image).__name__}")
 
 
-def _prompt_to_str(prompt: Prompt) -> str:
-    """Extract text from prompt."""
+def _prompt_text(prompt: Prompt) -> str:
     if isinstance(prompt.text, list):
         return "\n".join(f"{m['role']}: {m['content']}" for m in prompt.text)
     return prompt.text
 
 
-def _log_sample_results(
-    samples: list[Sample],
-    responses: list[ApiResponse],
-    scores: list[float],
-) -> None:
-    """Log each sample's prompt, answer, and result at DEBUG level."""
-    n = len(samples)
-    for i, (s, r, score) in enumerate(zip(samples, responses, scores)):
-        prompt_text = _prompt_to_str(s.prompt).replace("\\n", "\n")
-        answer_text = r["answer"].replace("\\n", "\n")
-        emoji = "✅" if score == 1.0 else "❌"
-        logger.debug(
-            f"\n{'=' * 60}\n"
-            f"Sample {i + 1}/{n} {emoji}\n"
-            f"{'=' * 60}\n"
-            f"PROMPT:\n{prompt_text}\n"
-            f"{'-' * 60}\n"
-            f"ANSWER:\n{answer_text}\n"
-            f"{'-' * 60}\n"
-            f"TARGET: {s.target}\n"
-            f"{'=' * 60}"
-        )
-
-
 def compute_samples_hash(samples: list[Sample]) -> str:
-    """Compute SHA256 hash for all samples in a task (includes image data)."""
+    """SHA256 hash of all samples for reproducibility tracking."""
     hasher = hashlib.sha256()
     for s in samples:
-        hasher.update(_prompt_to_str(s.prompt).encode())
+        hasher.update(_prompt_text(s.prompt).encode())
         for img in s.prompt.images:
             hasher.update(_encode_image(img).encode())
         hasher.update(s.target.encode())
@@ -320,20 +230,8 @@ async def run_task(
     modality: str,
     max_samples: int | None = None,
     seed: int | None = None,
-) -> tuple[TaskResult, list[RequestLogEntry]]:
-    """
-    Evaluate a task: collect samples, run inference, compute scores.
-
-    Args:
-        task: Task definition with samples loader and scoring function
-        config: API configuration (includes gen_kwargs for temperature, max_tokens, etc.)
-        modality: Modality label for logging and result metadata
-        max_samples: Optional limit on number of samples
-        seed: Optional seed for shuffling sample order
-
-    Returns:
-        TaskResult with metrics, sample count, elapsed time, and per-sample data
-    """
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Evaluate a task: load samples, run inference, compute scores."""
     samples = task.load_samples(max_samples, seed)
     samples_hash = compute_samples_hash(samples)
     prompts = [s.prompt for s in samples]
@@ -346,12 +244,11 @@ async def run_task(
     responses = await complete(prompts, config, f"Running {modality} eval")
     elapsed = time.perf_counter() - t0
 
-    # Log warning if any responses did not complete with "stop"
     reason_counts = Counter(r["stop_reason"] for r in responses)
-    non_stop_count = sum(c for reason, c in reason_counts.items() if reason != "stop")
-    if non_stop_count:
+    non_stop = sum(c for reason, c in reason_counts.items() if reason != "stop")
+    if non_stop:
         logger.warning(
-            f"{non_stop_count} response(s) did not finish with 'stop'. "
+            f"{non_stop} response(s) did not finish with 'stop'. "
             f"Reasons: {dict(reason_counts)}"
         )
 
@@ -359,41 +256,48 @@ async def run_task(
     n = len(samples)
 
     if logger.isEnabledFor(logging.DEBUG):
-        _log_sample_results(samples, responses, scores)
+        for i, (s, r, score) in enumerate(zip(samples, responses, scores)):
+            status = "PASS" if score == 1.0 else "FAIL"
+            logger.debug(
+                f"[{i + 1}/{n} {status}] target={s.target!r} got={r['answer']!r}"
+            )
 
     accuracy = sum(scores) / n if n else 0.0
     stderr = math.sqrt(accuracy * (1 - accuracy) / n) if n > 0 else 0.0
+    logger.debug(
+        f"{task.name}: accuracy={accuracy:.4f}+/-{stderr:.4f} ({elapsed:.2f}s)"
+    )
 
-    logger.debug(f"{task.name}: accuracy={accuracy:.4f}±{stderr:.4f} ({elapsed:.2f}s)")
-
-    # Collect per-request data for optional JSONL export (negligible overhead)
-    request_logs: list[RequestLogEntry] = [
-        RequestLogEntry(
-            request_id=i,
-            target=s.target,
-            prompt=_prompt_to_str(s.prompt),
-            response=r["answer"],
-            score=score,
-            stop_reason=r["stop_reason"],
-            input_tokens=r["input_tokens"],
-            output_tokens=r["output_tokens"],
-            duration_seconds=r["duration_seconds"],
-        )
+    request_logs = [
+        {
+            "request_id": i,
+            "target": s.target,
+            "prompt": _prompt_text(s.prompt),
+            "response": r["answer"],
+            "score": score,
+            "stop_reason": r["stop_reason"],
+            "input_tokens": r["input_tokens"],
+            "output_tokens": r["output_tokens"],
+            "duration_seconds": r["duration_seconds"],
+        }
         for i, (s, r, score) in enumerate(zip(samples, responses, scores))
     ]
-    total_input_tokens = sum(r["input_tokens"] for r in responses)
-    total_output_tokens = sum(r["output_tokens"] for r in responses)
-    total_tokens = total_input_tokens + total_output_tokens
+
+    total_input = sum(r["input_tokens"] for r in responses)
+    total_output = sum(r["output_tokens"] for r in responses)
     total_duration = sum(r["duration_seconds"] for r in responses)
-    result = TaskResult(
-        elapsed_seconds=elapsed,
-        metrics=Metrics(accuracy=accuracy, accuracy_stderr=stderr),
-        num_samples=n,
-        samples_hash=samples_hash,
-        task=task.name,
-        modality=modality,
-        total_input_tokens=total_input_tokens,
-        total_output_tokens=total_output_tokens,
-        tokens_per_second=total_tokens / total_duration if total_duration else 0.0,
-    )
+
+    result = {
+        "elapsed_seconds": elapsed,
+        "metrics": {"accuracy": accuracy, "accuracy_stderr": stderr},
+        "num_samples": n,
+        "samples_hash": samples_hash,
+        "task": task.name,
+        "modality": modality,
+        "total_input_tokens": total_input,
+        "total_output_tokens": total_output,
+        "tokens_per_second": (total_input + total_output) / total_duration
+        if total_duration
+        else 0.0,
+    }
     return result, request_logs

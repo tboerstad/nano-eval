@@ -1,8 +1,4 @@
-"""
-nano-eval CLI entry point.
-
-CLI args → ApiConfig → evaluate() → TASKS[modality]() → JSON output
-"""
+"""nano-eval: evaluate LLMs on standardized tasks via OpenAI-compatible APIs."""
 
 from __future__ import annotations
 
@@ -11,7 +7,7 @@ import json
 import logging
 from importlib.metadata import version
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import Any
 
 import click
 import httpx
@@ -20,7 +16,7 @@ logger = logging.getLogger("nano_eval")
 
 
 class _LevelPrefixFormatter(logging.Formatter):
-    """Formatter that prefixes WARNING/ERROR messages with their level."""
+    """Prefixes WARNING/ERROR messages with their level, passes INFO through clean."""
 
     def format(self, record: logging.LogRecord) -> str:
         if record.levelno >= logging.WARNING:
@@ -28,48 +24,27 @@ class _LevelPrefixFormatter(logging.Formatter):
         return record.getMessage()
 
 
-if TYPE_CHECKING:
-    from core import RequestLogEntry, TaskResult
-
-__all__ = ["evaluate", "EvalResult"]
-
-
-class ConfigInfo(TypedDict):
-    model: str
-    max_samples: int | None
-
-
-class EvalResult(TypedDict):
-    config: ConfigInfo
-    framework_version: str
-    results: dict[str, TaskResult]
-    total_seconds: float
-
-
 def _parse_kwargs(s: str) -> dict[str, Any]:
     """Parse 'key=value,key=value' into dict."""
     if not s:
         return {}
-    result = {}
+    result: dict[str, Any] = {}
     for pair in s.split(","):
         if "=" not in pair:
             raise ValueError(f"Invalid format '{pair}': expected 'key=value'")
         key, value = pair.split("=", 1)
         try:
-            # Parse numbers/bools: temperature=0.7 -> 0.7, enabled=true -> True
             result[key] = json.loads(value)
         except json.JSONDecodeError:
-            # Unquoted strings fail JSON parsing, use as-is: model=gpt-4 -> "gpt-4"
             result[key] = value
     return result
 
 
 def _check_endpoint(url: str, api_key: str = "") -> None:
-    """Verify API endpoint is reachable. Raises ValueError with user-friendly message."""
+    """Verify API endpoint is reachable."""
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     try:
         resp = httpx.get(url, headers=headers, timeout=10)
-        # 404/405 mean server is running (GET not supported on chat/completions)
         if resp.status_code in (401, 403):
             raise ValueError(
                 f"Authentication failed ({resp.status_code}) at {url}\n"
@@ -82,7 +57,7 @@ def _check_endpoint(url: str, api_key: str = "") -> None:
 
 
 def _detect_base_url(api_key: str = "") -> str:
-    """Auto-detect local API endpoint by trying common ports."""
+    """Try common local ports to find an API server."""
     candidates = [
         "http://127.0.0.1:8000/v1",
         "http://127.0.0.1:8080/v1",
@@ -102,18 +77,10 @@ def _detect_base_url(api_key: str = "") -> str:
 
 
 def _list_models(base_url: str, api_key: str = "") -> list[str]:
-    """Fetch available models from the API's /models endpoint."""
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     resp = httpx.get(f"{base_url}/models", headers=headers, timeout=30)
     resp.raise_for_status()
     return [model["id"] for model in resp.json().get("data", [])]
-
-
-def _write_requests_jsonl(filepath: Path, requests: list[RequestLogEntry]) -> None:
-    """Write per-request results to JSONL file."""
-    with open(filepath, "w") as f:
-        for request in requests:
-            f.write(json.dumps(request, ensure_ascii=False) + "\n")
 
 
 def evaluate(
@@ -128,25 +95,8 @@ def evaluate(
     log_requests: bool = False,
     dataset_seed: int = 42,
     request_timeout: int = 300,
-) -> EvalResult:
-    """
-    Run evaluations for specified modalities.
-
-    Args:
-        modalities: List of modalities to evaluate ("text" or "vision")
-        base_url: OpenAI-compatible API endpoint. Auto-detected from 127.0.0.1:8000/8080 if omitted.
-        model: Model name. Auto-detected if endpoint serves exactly one model.
-        api_key: Bearer token for API authentication
-        gen_kwargs: API params like temperature, max_tokens, seed
-        max_samples: Optional limit on samples per task
-        output_path: If provided, write results.json to this directory
-        log_requests: If True, also write requests_{modality}.jsonl files
-        dataset_seed: Seed for shuffling dataset sample order
-        request_timeout: Timeout in seconds for each API request
-
-    Returns:
-        EvalResult with per-task metrics and metadata
-    """
+) -> dict[str, Any]:
+    """Run evaluations for specified modalities and return results dict."""
     from core import ApiConfig, run_task
     from tasks import TASKS
 
@@ -183,7 +133,7 @@ def evaluate(
     if output_path:
         output_path.mkdir(parents=True, exist_ok=True)
 
-    results: dict[str, TaskResult] = {}
+    results: dict[str, Any] = {}
     total_seconds = 0.0
 
     for modality in modalities:
@@ -197,14 +147,16 @@ def evaluate(
         )
         if output_path and log_requests:
             requests_file = output_path / f"request_log_{modality}.jsonl"
-            _write_requests_jsonl(requests_file, request_logs)
+            with open(requests_file, "w") as f:
+                for entry in request_logs:
+                    f.write(json.dumps(entry, ensure_ascii=False) + "\n")
             logger.info(
                 f"Request logs for {modality} dataset written to: {requests_file}"
             )
         results[modality] = result
         total_seconds += result["elapsed_seconds"]
 
-    eval_result: EvalResult = {
+    eval_result = {
         "config": {"max_samples": max_samples, "model": config.model},
         "framework_version": version("nano-eval"),
         "results": results,
@@ -220,8 +172,7 @@ def evaluate(
     return eval_result
 
 
-def _print_results_table(result: EvalResult) -> None:
-    """Print a mini results table."""
+def _print_results_table(result: dict[str, Any]) -> None:
     print("\nTask    Accuracy  Samples  Duration  Output Tokens  Per Req Tok/s")
     print("------  --------  -------  --------  -------------  -------------")
     for r in result["results"].values():
@@ -299,22 +250,19 @@ def main(
 
     Example: nano-eval -m text
     """
-    if verbose < 1:  # Default: clean output with custom formatter
+    if verbose < 1:
         handler = logging.StreamHandler()
         handler.setFormatter(_LevelPrefixFormatter())
         logging.basicConfig(level=logging.INFO, handlers=[handler])
     else:
         logging.basicConfig(level=logging.INFO, format=logging.BASIC_FORMAT)
 
-    # Suppress noisy libraries by default
     logging.getLogger("httpx").setLevel(logging.WARNING)
-
-    # Each -v increases verbosity
-    if verbose >= 1:  # -v: DEBUG for nano-eval
+    if verbose >= 1:
         logger.setLevel(logging.DEBUG)
-    if verbose >= 2:  # -vv: INFO for httpx
+    if verbose >= 2:
         logging.getLogger("httpx").setLevel(logging.INFO)
-    if verbose >= 3:  # -vvv: DEBUG for httpx
+    if verbose >= 3:
         logging.getLogger("httpx").setLevel(logging.DEBUG)
 
     result = evaluate(

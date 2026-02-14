@@ -1,8 +1,4 @@
-"""
-ChartQA evaluation - multimodal chart understanding.
-
-Defines chartqa: Task instance with relaxed matching (5% numeric tolerance).
-"""
+"""ChartQA evaluation: relaxed matching with 5% numeric tolerance."""
 
 from __future__ import annotations
 
@@ -13,14 +9,11 @@ from core import Prompt, Sample, Task
 
 _CHARTQA_REVISION = "b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5"
 
-# Extracts answer after "Final Answer:" up to newline or end
 _FINAL_ANSWER_RE = re.compile(r"Final Answer:\s*(.+?)(?:\n|$)", re.IGNORECASE)
-# Strip currency/percent symbols for numeric comparison: "$1,234%" -> "1234"
 _NUMERIC_CLEAN_RE = re.compile(r"[$,%]")
 
 
 def _format_chartqa_prompt(query: str) -> str:
-    """Format ChartQA prompt."""
     return (
         f"{query}\n"
         "Analyze the image and question carefully, using step-by-step reasoning.\n"
@@ -41,7 +34,6 @@ def _format_chartqa_prompt(query: str) -> str:
 
 
 def _score(response: str, target: str) -> float:
-    """ChartQA relaxed match: exact match or 5% numeric tolerance."""
     if match := _FINAL_ANSWER_RE.search(response):
         pred = match.group(1).strip()
     else:
