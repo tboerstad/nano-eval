@@ -218,26 +218,15 @@ def compute_samples_hash(samples: list[Sample]) -> str:
     return hasher.hexdigest()
 
 
-async def run_task(
+def _compile_results(
     task: Task,
-    config: ApiConfig,
     modality: str,
-    max_samples: int | None = None,
-    seed: int | None = None,
+    samples: list[Sample],
+    responses: list[dict[str, Any]],
+    elapsed: float,
+    samples_hash: str,
 ) -> tuple[TaskResult, list[dict[str, Any]]]:
-    """Evaluate a task: load samples, run inference, compute scores."""
-    samples = task.load_samples(max_samples, seed)
-    samples_hash = compute_samples_hash(samples)
-    prompts = [s.prompt for s in samples]
-
-    logger.info(
-        f"Starting {modality} ({task.name}) eval: "
-        f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
-    )
-    t0 = time.perf_counter()
-    responses = await complete(prompts, config, f"Running {modality} eval")
-    elapsed = time.perf_counter() - t0
-
+    """Score responses and compile into TaskResult + request logs."""
     reason_counts = Counter(r["stop_reason"] for r in responses)
     non_stop = len(responses) - reason_counts.get("stop", 0)
     if non_stop:
@@ -295,3 +284,26 @@ async def run_task(
         else 0.0,
     )
     return result, request_logs
+
+
+async def run_task(
+    task: Task,
+    config: ApiConfig,
+    modality: str,
+    max_samples: int | None = None,
+    seed: int | None = None,
+) -> tuple[TaskResult, list[dict[str, Any]]]:
+    """Evaluate a task: load samples, run inference, compile results."""
+    samples = task.load_samples(max_samples, seed)
+    samples_hash = compute_samples_hash(samples)
+    prompts = [s.prompt for s in samples]
+
+    logger.info(
+        f"Starting {modality} ({task.name}) eval: "
+        f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
+    )
+    t0 = time.perf_counter()
+    responses = await complete(prompts, config, f"Running {modality} eval")
+    elapsed = time.perf_counter() - t0
+
+    return _compile_results(task, modality, samples, responses, elapsed, samples_hash)
