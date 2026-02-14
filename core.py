@@ -2,7 +2,7 @@
 Core utilities for nano-eval.
 
 Responsibilities:
-- APIConfig: endpoint, model, concurrency, timeout
+- ApiConfig: endpoint, model, concurrency, timeout
 - Sample/Task: minimal task abstraction (generator + scorer)
 - complete(): async batch chat completions (OpenAI-compatible)
 - run_task(): evaluate a Task, return TaskResult
@@ -26,8 +26,11 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, TypedDict
 
+import datasets
 import datasets.config as ds_config
 import httpx
+from datasets import Dataset, DownloadMode
+from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
 
@@ -108,7 +111,7 @@ class Task:
 
 
 @dataclass
-class APIConfig:
+class ApiConfig:
     """API configuration."""
 
     url: str
@@ -142,7 +145,7 @@ async def _request(
 
 async def complete(
     prompts: list[Input],
-    config: APIConfig,
+    config: ApiConfig,
     progress_desc: str = "Running evals",
 ) -> list[ApiResponse]:
     """
@@ -277,7 +280,7 @@ def compute_samples_hash(samples: list[Sample]) -> str:
 
 async def run_task(
     task: Task,
-    config: APIConfig,
+    config: ApiConfig,
     max_samples: int | None = None,
     seed: int | None = None,
 ) -> tuple[TaskResult, list[RequestLogEntry]]:
@@ -366,8 +369,6 @@ def _offline_if_cached(dataset: str, revision: str):
         Tuple of (cached: bool, hf_home: Path) where cached indicates if dataset
         is in cache and hf_home is the HuggingFace cache directory.
     """
-    from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
-
     hub_path = (
         Path(HF_HUB_CACHE)
         / f"datasets--{dataset.replace('/', '--')}"
@@ -396,9 +397,6 @@ def load_hf_samples(
     config_name: str | None = None,
 ) -> list[Sample]:
     """Load samples from a HuggingFace dataset across splits."""
-    import datasets
-    from datasets import Dataset, DownloadMode
-
     # TODO Upstream fix. HF datasets logging is too noisy
     datasets.utils.logging.set_verbosity_error()
 
