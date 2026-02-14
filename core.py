@@ -75,28 +75,18 @@ class TaskResult(TypedDict):
 
 
 @dataclass(frozen=True)
-class TextPrompt:
-    """Text-only prompt (simple string or pre-formatted messages)."""
+class Prompt:
+    """Evaluation prompt with optional images for multimodal tasks."""
 
     text: str | list[dict[str, str]]
-
-
-@dataclass(frozen=True)
-class VisionPrompt:
-    """Multimodal prompt with text and images."""
-
-    text: str
-    images: list[Any]
-
-
-Input = TextPrompt | VisionPrompt
+    images: list[Any] = field(default_factory=list)
 
 
 @dataclass
 class Sample:
     """A single evaluation sample: prompt + expected target."""
 
-    prompt: Input
+    prompt: Prompt
     target: str
 
 
@@ -144,7 +134,7 @@ async def _request(
 
 
 async def complete(
-    prompts: list[Input],
+    prompts: list[Prompt],
     config: ApiConfig,
     progress_desc: str = "Running evals",
 ) -> list[ApiResponse]:
@@ -152,7 +142,7 @@ async def complete(
     Run batch of chat completions.
 
     Args:
-        prompts: List of prompts (TextPrompt or VisionPrompt)
+        prompts: List of prompts (text-only or multimodal with images)
         config: API configuration (includes gen_kwargs for temperature, max_tokens, etc.)
         progress_desc: Label shown on the tqdm progress bar
     """
@@ -168,7 +158,8 @@ async def complete(
     ) as client:
         tasks: list[asyncio.Task[ApiResponse]] = []
         for prompt in prompts:
-            if isinstance(prompt, VisionPrompt):
+            if prompt.images:
+                assert isinstance(prompt.text, str)
                 messages = _build_vision_message(prompt.text, prompt.images)
             elif isinstance(prompt.text, list):
                 messages = prompt.text
@@ -234,10 +225,8 @@ def _encode_image(image: Any) -> str:
     raise TypeError(f"Unsupported image type: {type(image).__name__}")
 
 
-def _prompt_to_str(prompt: Input) -> str:
-    """Extract text from prompt (handles TextPrompt and VisionPrompt)."""
-    if isinstance(prompt, VisionPrompt):
-        return prompt.text
+def _prompt_to_str(prompt: Prompt) -> str:
+    """Extract text from prompt."""
     if isinstance(prompt.text, list):
         return "\n".join(f"{m['role']}: {m['content']}" for m in prompt.text)
     return prompt.text
@@ -272,9 +261,8 @@ def compute_samples_hash(samples: list[Sample]) -> str:
     hasher = hashlib.sha256()
     for s in samples:
         hasher.update(_prompt_to_str(s.prompt).encode())
-        if isinstance(s.prompt, VisionPrompt):
-            for img in s.prompt.images:
-                hasher.update(_encode_image(img).encode())
+        for img in s.prompt.images:
+            hasher.update(_encode_image(img).encode())
         hasher.update(s.target.encode())
     return hasher.hexdigest()
 
