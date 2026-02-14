@@ -63,7 +63,6 @@ class TestE2E:
 
         def api_response(request):
             body = json.loads(request.content)
-            # Verify default generation parameters are passed
             assert body["temperature"] == 0
             assert body["max_tokens"] == 256
             assert body["seed"] == 42
@@ -147,7 +146,6 @@ class TestE2E:
 
         def api_response(request):
             body = json.loads(request.content)
-            # Extract text from vision message content array
             content_list = body["messages"][0]["content"]
             prompt = next(c["text"] for c in content_list if c["type"] == "text")
             h = hashlib.md5(prompt.encode()).hexdigest()[:6]
