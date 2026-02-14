@@ -103,15 +103,48 @@ class Task:
     def load_samples(
         self, max_samples: int | None = None, seed: int | None = None
     ) -> list[Sample]:
-        return load_hf_samples(
-            dataset=self.dataset,
-            revision=self.revision,
-            splits=self.splits,
-            extract=self.extract,
-            max_samples=max_samples,
-            seed=seed,
-            config_name=self.config_name,
+        """Load samples from a HuggingFace dataset across splits."""
+        # TODO Upstream fix. HF datasets logging is too noisy
+        datasets.utils.logging.set_verbosity_error()
+
+        # Enable offline mode if dataset is already cached (avoids HEAD requests)
+        cache_path = (
+            Path(HF_HUB_CACHE)
+            / f"datasets--{self.dataset.replace('/', '--')}"
+            / "snapshots"
+            / self.revision
         )
+        cached = cache_path.is_dir()
+        logger.info(
+            f"Cache {'hit' if cached else 'miss'} for {self.dataset}, HF_HOME={HF_HOME}"
+        )
+        old_offline = ds_config.HF_HUB_OFFLINE
+        if cached:
+            ds_config.HF_HUB_OFFLINE = True
+
+        try:
+            result: list[Sample] = []
+            for split in self.splits:
+                remaining = None if max_samples is None else max_samples - len(result)
+                if remaining is not None and remaining <= 0:
+                    break
+                ds = datasets.load_dataset(
+                    self.dataset,
+                    name=self.config_name,
+                    split=split,
+                    revision=self.revision,
+                    download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
+                )
+                assert isinstance(ds, Dataset)
+                if seed is not None:
+                    ds = ds.shuffle(seed=seed)
+                if remaining is not None:
+                    ds = ds.select(range(min(remaining, len(ds))))
+                for doc in ds:
+                    result.append(self.extract(doc))
+            return result
+        finally:
+            ds_config.HF_HUB_OFFLINE = old_offline
 
 
 @dataclass
@@ -364,54 +397,3 @@ async def run_task(
         tokens_per_second=total_tokens / total_duration if total_duration else 0.0,
     )
     return result, request_logs
-
-
-def load_hf_samples(
-    dataset: str,
-    revision: str,
-    splits: list[str],
-    extract: Callable[[dict[str, Any]], Sample],
-    max_samples: int | None,
-    seed: int | None,
-    config_name: str | None = None,
-) -> list[Sample]:
-    """Load samples from a HuggingFace dataset across splits."""
-    # TODO Upstream fix. HF datasets logging is too noisy
-    datasets.utils.logging.set_verbosity_error()
-
-    # Enable offline mode if dataset is already cached (avoids HEAD requests)
-    cache_path = (
-        Path(HF_HUB_CACHE)
-        / f"datasets--{dataset.replace('/', '--')}"
-        / "snapshots"
-        / revision
-    )
-    cached = cache_path.is_dir()
-    logger.info(f"Cache {'hit' if cached else 'miss'} for {dataset}, HF_HOME={HF_HOME}")
-    old_offline = ds_config.HF_HUB_OFFLINE
-    if cached:
-        ds_config.HF_HUB_OFFLINE = True
-
-    try:
-        result: list[Sample] = []
-        for split in splits:
-            remaining = None if max_samples is None else max_samples - len(result)
-            if remaining is not None and remaining <= 0:
-                break
-            ds = datasets.load_dataset(
-                dataset,
-                name=config_name,
-                split=split,
-                revision=revision,
-                download_mode=DownloadMode.REUSE_DATASET_IF_EXISTS,
-            )
-            assert isinstance(ds, Dataset)
-            if seed is not None:
-                ds = ds.shuffle(seed=seed)
-            if remaining is not None:
-                ds = ds.select(range(min(remaining, len(ds))))
-            for doc in ds:
-                result.append(extract(doc))
-        return result
-    finally:
-        ds_config.HF_HUB_OFFLINE = old_offline

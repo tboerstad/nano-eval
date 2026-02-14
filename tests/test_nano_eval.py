@@ -101,7 +101,9 @@ class TestE2E:
                 side_effect=api_response
             )
 
-            with patch("core.load_hf_samples", return_value=real_samples):
+            with patch.object(
+                type(gsm8k_cot_llama), "load_samples", return_value=real_samples
+            ):
                 runner = CliRunner()
                 result = runner.invoke(
                     main,
@@ -174,7 +176,7 @@ class TestE2E:
                 side_effect=api_response
             )
 
-            with patch("core.load_hf_samples", return_value=real_samples):
+            with patch.object(type(chartqa), "load_samples", return_value=real_samples):
                 runner = CliRunner()
                 result = runner.invoke(
                     main,
