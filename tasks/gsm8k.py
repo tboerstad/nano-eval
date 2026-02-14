@@ -1,8 +1,4 @@
-"""
-GSM8K evaluation - grade school math with chain-of-thought.
-
-Defines gsm8k_cot_llama: Task instance with 8-shot CoT prompting and normalized scoring.
-"""
+"""GSM8K evaluation: 8-shot chain-of-thought, normalized answer matching."""
 
 from __future__ import annotations
 
@@ -58,10 +54,10 @@ _GSM8K_TEMPLATE = (
 # - "-?[$0-9.,]{2,}": formatted numbers like "$1,234.56" (2+ chars to avoid lone punctuation)
 # - "-?[0-9]+": simple integers like "5" (catches single digits the first pattern misses)
 _NUM_RE = re.compile(r"-?[$0-9.,]{2,}|-?[0-9]+")
+_FINAL_ANSWER_RE = re.compile(rf"The final answer is ({_NUM_RE.pattern})")
 
 
 def _normalize(text: str) -> str:
-    """Normalize text for GSM8K answer comparison."""
     text = re.sub(r"[$,]", "", text)
     text = re.sub(r"(?s).*#### ", "", text)
     text = re.sub(r"\.$", "", text)
@@ -69,7 +65,6 @@ def _normalize(text: str) -> str:
 
 
 def _format_gsm8k_prompt(question: str) -> list[dict[str, str]]:
-    """Format GSM8K prompt with few-shot examples as multiturn messages."""
     messages: list[dict[str, str]] = []
     for q, a in GSM8K_FEWSHOT:
         messages.append({"role": "user", "content": _GSM8K_TEMPLATE.format(question=q)})
@@ -81,19 +76,13 @@ def _format_gsm8k_prompt(question: str) -> list[dict[str, str]]:
 
 
 def _parse_target(answer: str) -> str:
-    """Parse target answer from GSM8K format, handling missing #### delimiter."""
     parts = answer.split("####")
     if len(parts) < 2:
         return answer.strip()
     return parts[-1].strip()
 
 
-# Extracts number from "The final answer is 42" format (prompt instructs model to use this)
-_FINAL_ANSWER_RE = re.compile(rf"The final answer is ({_NUM_RE.pattern})")
-
-
 def _extract_gsm8k_answer(response: str) -> str:
-    """Extract numeric answer from GSM8K response."""
     if match := _FINAL_ANSWER_RE.search(response):
         return match.group(1)
     matches = _NUM_RE.findall(response)
@@ -110,7 +99,6 @@ def _extract(doc: dict[str, Any]) -> Sample:
 
 
 def _score(response: str, target: str) -> float:
-    """Score GSM8K response: 1.0 if normalized answer matches, else 0.0."""
     extracted = _extract_gsm8k_answer(response)
     return 1.0 if _normalize(extracted) == _normalize(target) else 0.0
 

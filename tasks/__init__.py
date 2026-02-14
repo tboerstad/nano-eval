@@ -1,14 +1,6 @@
-"""
-Task registry for nano-eval.
-
-Maps modality to Task instances:
-- text: gsm8k_cot_llama (8-shot grade school math with chain-of-thought)
-- vision: chartqa (multimodal chart understanding)
-"""
+"""Task registry: maps modality name to Task instance."""
 
 from tasks.chartqa import chartqa
 from tasks.gsm8k import gsm8k_cot_llama
 
 TASKS = {"text": gsm8k_cot_llama, "vision": chartqa}
-
-__all__ = ["TASKS", "gsm8k_cot_llama", "chartqa"]
