@@ -1,4 +1,4 @@
-"""Core: Task, Sample, complete(), run_task()."""
+"""Core: ApiConfig, Task, Sample, complete(), run_task()."""
 
 from __future__ import annotations
 
@@ -102,6 +102,18 @@ class Task:
             ds_config.HF_HUB_OFFLINE = old_offline
 
 
+@dataclass
+class ApiConfig:
+    """API endpoint configuration."""
+
+    url: str
+    model: str
+    api_key: str = ""
+    max_concurrent: int = 8
+    timeout: int = 300
+    gen_kwargs: dict[str, Any] = field(default_factory=dict)
+
+
 async def _request(
     client: httpx.AsyncClient,
     url: str,
@@ -123,23 +135,17 @@ async def _request(
 
 async def complete(
     prompts: list[Prompt],
-    *,
-    url: str,
-    model: str,
-    api_key: str = "",
-    max_concurrent: int = 8,
-    timeout: int = 300,
-    gen_kwargs: dict[str, Any] | None = None,
+    config: ApiConfig,
     progress_desc: str = "Running evals",
 ) -> list[dict[str, Any]]:
     """Run batch of chat completions with concurrency control."""
     headers: dict[str, str] = {"Content-Type": "application/json"}
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
+    if config.api_key:
+        headers["Authorization"] = f"Bearer {config.api_key}"
 
     async with httpx.AsyncClient(
-        limits=httpx.Limits(max_connections=max_concurrent),
-        timeout=httpx.Timeout(timeout),
+        limits=httpx.Limits(max_connections=config.max_concurrent),
+        timeout=httpx.Timeout(config.timeout),
         headers=headers,
         trust_env=True,
     ) as client:
@@ -154,12 +160,12 @@ async def complete(
                 messages = [{"role": "user", "content": prompt.text}]
 
             payload: dict[str, Any] = {
-                "model": model,
+                "model": config.model,
                 "messages": messages,
-                **(gen_kwargs or {}),
+                **config.gen_kwargs,
             }
 
-            tasks.append(asyncio.create_task(_request(client, url, payload)))
+            tasks.append(asyncio.create_task(_request(client, config.url, payload)))
 
         try:
             return list(
@@ -222,13 +228,7 @@ def compute_samples_hash(samples: list[Sample]) -> str:
 
 async def run_task(
     task: Task,
-    *,
-    url: str,
-    model: str,
-    api_key: str = "",
-    max_concurrent: int = 8,
-    timeout: int = 300,
-    gen_kwargs: dict[str, Any] | None = None,
+    config: ApiConfig,
     modality: str,
     max_samples: int | None = None,
     seed: int | None = None,
@@ -240,19 +240,10 @@ async def run_task(
 
     logger.info(
         f"Starting {modality} ({task.name}) eval: "
-        f"{len(samples)} samples, up to {max_concurrent} concurrent requests"
+        f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
     )
     t0 = time.perf_counter()
-    responses = await complete(
-        prompts,
-        url=url,
-        model=model,
-        api_key=api_key,
-        max_concurrent=max_concurrent,
-        timeout=timeout,
-        gen_kwargs=gen_kwargs,
-        progress_desc=f"Running {modality} eval",
-    )
+    responses = await complete(prompts, config, f"Running {modality} eval")
     elapsed = time.perf_counter() - t0
 
     reason_counts = Counter(r["stop_reason"] for r in responses)
