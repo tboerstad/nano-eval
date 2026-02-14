@@ -18,8 +18,7 @@ import logging
 import math
 import time
 from collections import Counter
-from collections.abc import Callable, Generator
-from contextlib import contextmanager
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
@@ -367,28 +366,6 @@ async def run_task(
     return result, request_logs
 
 
-@contextmanager
-def _offline_if_cached(dataset: str, revision: str) -> Generator[None, None, None]:
-    """Enable HF offline mode if dataset is already cached (avoids HEAD requests)."""
-    hub_path = (
-        Path(HF_HUB_CACHE)
-        / f"datasets--{dataset.replace('/', '--')}"
-        / "snapshots"
-        / revision
-    )
-    cached = hub_path.is_dir()
-    logger.info(f"Cache {'hit' if cached else 'miss'} for {dataset}, HF_HOME={HF_HOME}")
-
-    if cached:
-        old = ds_config.HF_HUB_OFFLINE
-        ds_config.HF_HUB_OFFLINE = True
-    try:
-        yield
-    finally:
-        if cached:
-            ds_config.HF_HUB_OFFLINE = old
-
-
 def load_hf_samples(
     dataset: str,
     revision: str,
@@ -402,7 +379,20 @@ def load_hf_samples(
     # TODO Upstream fix. HF datasets logging is too noisy
     datasets.utils.logging.set_verbosity_error()
 
-    with _offline_if_cached(dataset, revision):
+    # Enable offline mode if dataset is already cached (avoids HEAD requests)
+    cache_path = (
+        Path(HF_HUB_CACHE)
+        / f"datasets--{dataset.replace('/', '--')}"
+        / "snapshots"
+        / revision
+    )
+    cached = cache_path.is_dir()
+    logger.info(f"Cache {'hit' if cached else 'miss'} for {dataset}, HF_HOME={HF_HOME}")
+    old_offline = ds_config.HF_HUB_OFFLINE
+    if cached:
+        ds_config.HF_HUB_OFFLINE = True
+
+    try:
         result: list[Sample] = []
         for split in splits:
             remaining = None if max_samples is None else max_samples - len(result)
@@ -423,3 +413,5 @@ def load_hf_samples(
             for doc in ds:
                 result.append(extract(doc))
         return result
+    finally:
+        ds_config.HF_HUB_OFFLINE = old_offline
