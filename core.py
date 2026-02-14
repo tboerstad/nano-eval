@@ -95,7 +95,6 @@ class Task:
     """Minimal task definition: a loader of samples + a scoring function."""
 
     name: str
-    modality: str
     samples: Callable[[int | None, int | None], list[Sample]]  # (max_samples, seed)
     score: Callable[[str, str], float]  # (response, target) -> score
 
@@ -270,6 +269,7 @@ def compute_samples_hash(samples: list[Sample]) -> str:
 async def run_task(
     task: Task,
     config: ApiConfig,
+    modality: str,
     max_samples: int | None = None,
     seed: int | None = None,
 ) -> tuple[TaskResult, list[RequestLogEntry]]:
@@ -279,6 +279,7 @@ async def run_task(
     Args:
         task: Task definition with samples loader and scoring function
         config: API configuration (includes gen_kwargs for temperature, max_tokens, etc.)
+        modality: Modality label for logging and result metadata
         max_samples: Optional limit on number of samples
         seed: Optional seed for shuffling sample order
 
@@ -290,11 +291,11 @@ async def run_task(
     prompts = [s.prompt for s in samples]
 
     logger.info(
-        f"Starting {task.modality} ({task.name}) eval: "
+        f"Starting {modality} ({task.name}) eval: "
         f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
     )
     t0 = time.perf_counter()
-    responses = await complete(prompts, config, f"Running {task.modality} eval")
+    responses = await complete(prompts, config, f"Running {modality} eval")
     elapsed = time.perf_counter() - t0
 
     # Log warning if any responses did not complete with "stop"
@@ -342,7 +343,7 @@ async def run_task(
         num_samples=n,
         samples_hash=samples_hash,
         task=task.name,
-        modality=task.modality,
+        modality=modality,
         total_input_tokens=total_input_tokens,
         total_output_tokens=total_output_tokens,
         tokens_per_second=total_tokens / total_duration if total_duration else 0.0,
