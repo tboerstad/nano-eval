@@ -3,10 +3,9 @@ Core utilities for nano-eval.
 
 Responsibilities:
 - ApiConfig: endpoint, model, concurrency, timeout
-- Sample/Task: minimal task abstraction (generator + scorer)
+- Sample/Task: declarative task definition (dataset config + scorer)
 - complete(): async batch chat completions (OpenAI-compatible)
 - run_task(): evaluate a Task, return TaskResult
-- load_hf_samples(): shared HuggingFace dataset loading
 - _encode_image(): PIL→base64; rejects remote URLs
 """
 
@@ -92,11 +91,28 @@ class Sample:
 
 @dataclass(frozen=True)
 class Task:
-    """Minimal task definition: a loader of samples + a scoring function."""
+    """Declarative task definition: dataset config + scoring function."""
 
     name: str
-    samples: Callable[[int | None, int | None], list[Sample]]  # (max_samples, seed)
-    score: Callable[[str, str], float]  # (response, target) -> score
+    dataset: str
+    revision: str
+    splits: list[str]
+    extract: Callable[[dict[str, Any]], Sample]
+    score: Callable[[str, str], float]
+    config_name: str | None = None
+
+    def load_samples(
+        self, max_samples: int | None = None, seed: int | None = None
+    ) -> list[Sample]:
+        return load_hf_samples(
+            dataset=self.dataset,
+            revision=self.revision,
+            splits=self.splits,
+            extract=self.extract,
+            max_samples=max_samples,
+            seed=seed,
+            config_name=self.config_name,
+        )
 
 
 @dataclass
@@ -286,7 +302,7 @@ async def run_task(
     Returns:
         TaskResult with metrics, sample count, elapsed time, and per-sample data
     """
-    samples = task.samples(max_samples, seed)
+    samples = task.load_samples(max_samples, seed)
     samples_hash = compute_samples_hash(samples)
     prompts = [s.prompt for s in samples]
 
@@ -352,15 +368,8 @@ async def run_task(
 
 
 @contextmanager
-def _offline_if_cached(
-    dataset: str, revision: str
-) -> Generator[tuple[bool, Path], None, None]:
-    """Context manager: enable HF offline mode if dataset is cached (avoids HEAD requests).
-
-    Yields:
-        Tuple of (cached: bool, hf_home: Path) where cached indicates if dataset
-        is in cache and hf_home is the HuggingFace cache directory.
-    """
+def _offline_if_cached(dataset: str, revision: str) -> Generator[None, None, None]:
+    """Enable HF offline mode if dataset is already cached (avoids HEAD requests)."""
     hub_path = (
         Path(HF_HUB_CACHE)
         / f"datasets--{dataset.replace('/', '--')}"
@@ -368,12 +377,13 @@ def _offline_if_cached(
         / revision
     )
     cached = hub_path.is_dir()
+    logger.info(f"Cache {'hit' if cached else 'miss'} for {dataset}, HF_HOME={HF_HOME}")
 
     if cached:
         old = ds_config.HF_HUB_OFFLINE
         ds_config.HF_HUB_OFFLINE = True
     try:
-        yield cached, Path(HF_HOME)
+        yield
     finally:
         if cached:
             ds_config.HF_HUB_OFFLINE = old
@@ -392,10 +402,7 @@ def load_hf_samples(
     # TODO Upstream fix. HF datasets logging is too noisy
     datasets.utils.logging.set_verbosity_error()
 
-    with _offline_if_cached(dataset, revision) as (cached, hf_home):
-        logger.info(
-            f"Cache {'hit' if cached else 'miss'} for {dataset}, HF_HOME={hf_home}"
-        )
+    with _offline_if_cached(dataset, revision):
         result: list[Sample] = []
         for split in splits:
             remaining = None if max_samples is None else max_samples - len(result)

@@ -1,10 +1,7 @@
 """
 ChartQA evaluation - multimodal chart understanding.
 
-Defines:
-- samples(): generator yielding ((prompt, images), target) pairs
-- score(): relaxed matching with 5% numeric tolerance
-- chartqa: Task instance for registration
+Defines chartqa: Task instance with relaxed matching (5% numeric tolerance).
 """
 
 from __future__ import annotations
@@ -12,7 +9,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from core import Prompt, Sample, Task, load_hf_samples
+from core import Prompt, Sample, Task
 
 _CHARTQA_REVISION = "b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5"
 
@@ -43,7 +40,7 @@ def _format_chartqa_prompt(query: str) -> str:
     )
 
 
-def score(response: str, target: str) -> float:
+def _score(response: str, target: str) -> float:
     """ChartQA relaxed match: exact match or 5% numeric tolerance."""
     if match := _FINAL_ANSWER_RE.search(response):
         pred = match.group(1).strip()
@@ -66,32 +63,23 @@ def score(response: str, target: str) -> float:
     return 0.0
 
 
-def samples(max_samples: int | None = None, seed: int | None = None) -> list[Sample]:
-    """Load ChartQA samples: ((prompt, [image]), target)."""
-
-    def extract(doc: dict[str, Any]) -> Sample:
-        label = doc["label"]
-        target = label[0] if isinstance(label, list) else str(label)
-        return Sample(
-            prompt=Prompt(
-                text=_format_chartqa_prompt(doc["query"]),
-                images=[doc["image"]],
-            ),
-            target=target,
-        )
-
-    return load_hf_samples(
-        dataset="HuggingFaceM4/ChartQA",
-        revision=_CHARTQA_REVISION,
-        splits=["test", "val", "train"],
-        extract=extract,
-        max_samples=max_samples,
-        seed=seed,
+def _extract(doc: dict[str, Any]) -> Sample:
+    label = doc["label"]
+    target = label[0] if isinstance(label, list) else str(label)
+    return Sample(
+        prompt=Prompt(
+            text=_format_chartqa_prompt(doc["query"]),
+            images=[doc["image"]],
+        ),
+        target=target,
     )
 
 
 chartqa = Task(
     name="chartqa",
-    samples=samples,
-    score=score,
+    dataset="HuggingFaceM4/ChartQA",
+    revision=_CHARTQA_REVISION,
+    splits=["test", "val", "train"],
+    extract=_extract,
+    score=_score,
 )
