@@ -66,11 +66,14 @@ def _parse_kwargs(s: str) -> dict[str, Any]:
     return result
 
 
+def _auth_headers(api_key: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {api_key}"} if api_key else {}
+
+
 def _check_endpoint(url: str, api_key: str = "") -> None:
     """Verify API endpoint is reachable."""
-    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     try:
-        resp = httpx.get(url, headers=headers, timeout=10)
+        resp = httpx.get(url, headers=_auth_headers(api_key), timeout=10)
         if resp.status_code in (401, 403):
             raise ValueError(
                 f"Authentication failed ({resp.status_code}) at {url}\n"
@@ -88,10 +91,11 @@ def _detect_base_url(api_key: str = "") -> str:
         "http://127.0.0.1:8000/v1",
         "http://127.0.0.1:8080/v1",
     ]
-    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     for base_url in candidates:
         try:
-            resp = httpx.get(f"{base_url}/models", headers=headers, timeout=2)
+            resp = httpx.get(
+                f"{base_url}/models", headers=_auth_headers(api_key), timeout=2
+            )
             if resp.status_code in (200, 401):
                 return base_url
         except httpx.HTTPError:
@@ -103,8 +107,7 @@ def _detect_base_url(api_key: str = "") -> str:
 
 
 def _list_models(base_url: str, api_key: str = "") -> list[str]:
-    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-    resp = httpx.get(f"{base_url}/models", headers=headers, timeout=30)
+    resp = httpx.get(f"{base_url}/models", headers=_auth_headers(api_key), timeout=30)
     resp.raise_for_status()
     return [model["id"] for model in resp.json().get("data", [])]
 
@@ -160,8 +163,6 @@ def evaluate(
         output_path.mkdir(parents=True, exist_ok=True)
 
     results: dict[str, TaskResult] = {}
-    total_seconds = 0.0
-
     for modality in modalities:
         if modality not in TASKS:
             raise ValueError(
@@ -180,13 +181,12 @@ def evaluate(
                 f"Request logs for {modality} dataset written to: {requests_file}"
             )
         results[modality] = result
-        total_seconds += result["elapsed_seconds"]
 
     eval_result = EvalResult(
         config={"max_samples": max_samples, "model": config.model},
         framework_version=version("nano-eval"),
         results=results,
-        total_seconds=total_seconds,
+        total_seconds=sum(r["elapsed_seconds"] for r in results.values()),
     )
 
     if output_path:
@@ -276,20 +276,16 @@ def main(
 
     Example: nano-eval -m text
     """
-    if verbose < 1:
+    if verbose:
+        logging.basicConfig(level=logging.INFO, format=logging.BASIC_FORMAT)
+        logger.setLevel(logging.DEBUG)
+    else:
         handler = logging.StreamHandler()
         handler.setFormatter(_LevelPrefixFormatter())
         logging.basicConfig(level=logging.INFO, handlers=[handler])
-    else:
-        logging.basicConfig(level=logging.INFO, format=logging.BASIC_FORMAT)
 
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    if verbose >= 1:
-        logger.setLevel(logging.DEBUG)
-    if verbose >= 2:
-        logging.getLogger("httpx").setLevel(logging.INFO)
-    if verbose >= 3:
-        logging.getLogger("httpx").setLevel(logging.DEBUG)
+    httpx_levels = [logging.WARNING, logging.WARNING, logging.INFO, logging.DEBUG]
+    logging.getLogger("httpx").setLevel(httpx_levels[min(verbose, 3)])
 
     result = evaluate(
         modalities=list(modalities),
