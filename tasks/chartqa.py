@@ -1,9 +1,6 @@
 """ChartQA evaluation: relaxed matching with 5% numeric tolerance."""
 
-from __future__ import annotations
-
 import re
-from typing import Any
 
 from core import Prompt, Sample, Task
 
@@ -13,7 +10,7 @@ _FINAL_ANSWER_RE = re.compile(r"Final Answer:\s*(.+?)(?:\n|$)", re.IGNORECASE)
 _NUMERIC_CLEAN_RE = re.compile(r"[$,%]")
 
 
-def _format_chartqa_prompt(query: str) -> str:
+def _format_chartqa_prompt(query):
     return (
         f"{query}\n"
         "Analyze the image and question carefully, using step-by-step reasoning.\n"
@@ -33,7 +30,7 @@ def _format_chartqa_prompt(query: str) -> str:
     )
 
 
-def _score(response: str, target: str) -> float:
+def _score(response, target):
     if match := _FINAL_ANSWER_RE.search(response):
         pred = match.group(1).strip()
     else:
@@ -55,7 +52,7 @@ def _score(response: str, target: str) -> float:
     return 0.0
 
 
-def _extract(doc: dict[str, Any]) -> Sample:
+def _extract(doc):
     label = doc["label"]
     target = label[0] if isinstance(label, list) else str(label)
     return Sample(

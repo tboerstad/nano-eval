@@ -93,7 +93,7 @@ class Task:
             ds_config.HF_HUB_OFFLINE = True
 
         try:
-            result: list[Sample] = []
+            result = []
             for split in self.splits:
                 remaining = None if max_samples is None else max_samples - len(result)
                 if remaining is not None and remaining <= 0:
@@ -129,11 +129,7 @@ class ApiConfig:
     gen_kwargs: dict[str, Any] = field(default_factory=dict)
 
 
-async def _request(
-    client: httpx.AsyncClient,
-    url: str,
-    payload: dict[str, Any],
-) -> dict[str, Any]:
+async def _request(client, url, payload):
     t0 = time.perf_counter()
     resp = await client.post(url, json=payload)
     if resp.is_success:
@@ -154,7 +150,7 @@ async def complete(
     progress_desc: str = "Running evals",
 ) -> list[dict[str, Any]]:
     """Run batch of chat completions with concurrency control."""
-    headers: dict[str, str] = {"Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json"}
     if config.api_key:
         headers["Authorization"] = f"Bearer {config.api_key}"
 
@@ -164,7 +160,7 @@ async def complete(
         headers=headers,
         trust_env=True,
     ) as client:
-        tasks: list[asyncio.Task[dict[str, Any]]] = []
+        tasks = []
         for prompt in prompts:
             if prompt.images:
                 assert isinstance(prompt.text, str)
@@ -174,7 +170,7 @@ async def complete(
             else:
                 messages = [{"role": "user", "content": prompt.text}]
 
-            payload: dict[str, Any] = {
+            payload = {
                 "model": config.model,
                 "messages": messages,
                 **config.gen_kwargs,
@@ -193,8 +189,8 @@ async def complete(
             raise
 
 
-def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
-    content: list[dict[str, Any]] = []
+def _build_vision_message(text, images):
+    content = []
     for img in images:
         if b64 := _encode_image(img):
             content.append(
@@ -207,7 +203,7 @@ def _build_vision_message(text: str, images: list[Any]) -> list[dict[str, Any]]:
     return [{"role": "user", "content": content}]
 
 
-def _encode_image(image: Any) -> str:
+def _encode_image(image):
     """Encode PIL image to base64, or pass through base64 string."""
     if isinstance(image, str):
         if image.startswith("http"):
@@ -224,7 +220,7 @@ def _encode_image(image: Any) -> str:
     raise TypeError(f"Unsupported image type: {type(image).__name__}")
 
 
-def _prompt_text(prompt: Prompt) -> str:
+def _prompt_text(prompt):
     if isinstance(prompt.text, list):
         return "\n".join(f"{m['role']}: {m['content']}" for m in prompt.text)
     return prompt.text
