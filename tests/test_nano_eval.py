@@ -21,31 +21,31 @@ from tasks.gsm8k import gsm8k_cot_llama
 # Hashes are for the last user message (the question) in multiturn fewshot format
 # fmt: off
 GSM8K_RESPONSES = {
-    "b4ae7b": "The final answer is 3",      # ✓ target=3
-    "2d1210": "The final answer is 18",     # ✓ target=18
-    "dbc356": "The final answer is 64",     # ✓ target=64
+    "b4ae7b": "The final answer is $3",     # ✓ target=3 (dollar sign)
+    "2d1210": "The final answer is 18.",    # ✓ target=18 (trailing period)
+    "dbc356": "Hmm, 8 times 8 is 64",      # ✓ target=64 (fallback extraction, no "The final answer is")
     "a1f1f0": "The final answer is 20",     # ✓ target=20
     "050045": "The final answer is 999",    # ✗ target=45
-    "464d52": "I first thought The final answer is 999, but I made an error. The final answer is 540",  # ✓ target=540 (tests last-match)
+    "464d52": "I first thought The final answer is 999, but I made an error. The final answer is 540",  # ✓ target=540 (last-match)
     "64816f": "The final answer is 999",    # ✗ target=160
-    "967e59": "The final answer is 460",    # ✓ target=460
+    "967e59": "The final answer is $460",   # ✓ target=460 (dollar sign)
     "8c5053": "The final answer is 260",    # ✓ target=260
-    "d85409": "The final answer is 70000",  # ✓ target=70000
+    "d85409": "The final answer is 70,000", # ✓ target=70000 (comma-formatted)
 }
 # fmt: on
 
 # ChartQA: 10 mock responses keyed by prompt hash (8 correct, 2 wrong = 80% accuracy)
 # fmt: off
 CHARTQA_RESPONSES = {
-    "eed350": "FINAL ANSWER: 6",      # ✓ target=6
-    "c6ad9c": "FINAL ANSWER: 3",      # ✓ target=3
-    "f9f65c": "FINAL ANSWER: No",     # ✓ target=No
-    "fa51ed": "FINAL ANSWER: 14",     # ✓ target=14
-    "8e6330": "FINAL ANSWER: 62",     # ✓ target=62
-    "b2bd79": "Looking at the chart: FINAL ANSWER: 999. Wait, I need to recount... FINAL ANSWER: 23",  # ✓ target=23 (tests last-match)
+    "eed350": "Final Answer: 6",      # ✓ target=6
+    "c6ad9c": "**Final Answer:** 3",  # ✓ target=3 (markdown bold)
+    "f9f65c": "Final Answer: No",     # ✓ target=No
+    "fa51ed": "Final Answer: 14",     # ✓ target=14
+    "8e6330": "Based on analysis, the answer: 62.",  # ✓ target=62 (trailing punct, non-standard prefix)
+    "b2bd79": "Looking at the chart: FINAL ANSWER: 999. Wait, I need to recount... FINAL ANSWER: 23",  # ✓ target=23 (last-match)
     "372e0a": "FINAL ANSWER: wrong",  # ✗ target=Yes
-    "833fc2": "FINAL ANSWER: 0.03",   # ✓ target=0.03
-    "59f1fa": "FINAL ANSWER: 0.57",   # ✓ target=0.57
+    "833fc2": "Final Answer: 3%",     # ✓ target=0.03 (percent/decimal equivalence)
+    "59f1fa": "Final Answer: 0.57",   # ✓ target=0.57
     "a14263": "FINAL ANSWER: wrong",  # ✗ target=Inspired
 }
 # fmt: on
@@ -132,7 +132,7 @@ class TestE2E:
         assert len(requests) == 10
         assert requests[0]["request_id"] == 0
         assert requests[0]["target"] == "18"
-        assert requests[0]["response"] == "The final answer is 18"
+        assert requests[0]["response"] == "The final answer is 18."
         assert requests[0]["score"] == 1.0
         assert requests[0]["stop_reason"] == "stop"
         assert requests[0]["output_tokens"] == 5
@@ -206,7 +206,7 @@ class TestE2E:
         assert len(requests) == 10
         assert requests[0]["request_id"] == 0
         assert requests[0]["target"] == "14"
-        assert requests[0]["response"] == "FINAL ANSWER: 14"
+        assert requests[0]["response"] == "Final Answer: 14"
         assert requests[0]["score"] == 1.0
         assert requests[0]["stop_reason"] == "stop"
         assert requests[0]["output_tokens"] == 10

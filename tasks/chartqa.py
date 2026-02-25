@@ -31,88 +31,135 @@ def _format_chartqa_prompt(query: str) -> str:
     )
 
 
-def _get_final_answer(response: str) -> str:
-    """Extract the final answer from a model response.
+# ---------------------------------------------------------------------------
+# Scoring vendored from lm-evaluation-harness (EleutherAI/lm-evaluation-harness)
+# Source: lm_eval/tasks/chartqa/utils.py
+# ---------------------------------------------------------------------------
 
-    Finds the last occurrence of 'answer:' (case-insensitive) and returns the
-    first non-empty line following it. Uses rfind so reasoning models that
-    self-correct are scored on their final answer, not an intermediate one.
+
+def _normalize_string(s: str) -> str:
+    if (s.startswith('"') and s.endswith('"')) or (
+        s.startswith("'") and s.endswith("'")
+    ):
+        return s[1:-1]
+    return s
+
+
+def _remove_end_punctuation(text: str) -> str:
+    while (
+        text
+        and (text[-1] in string.punctuation or text[-1].isspace())
+        and text[-1] != "%"
+    ):
+        text = text[:-1]
+    return text
+
+
+class _RelaxedCorrectness:
+    """Relaxed correctness with 5% numeric tolerance.
+
+    See https://arxiv.org/pdf/2203.10244.pdf, section 5.1.
     """
-    # Normalize markdown emphasis around 'answer:' (e.g. **answer:** -> answer:)
-    generation = re.sub(r"([aA]nswer)\**:\**", r"\1:", response)
-    idx = generation.lower().rfind("answer:")
-    if idx == -1:
-        return ""
-    start = idx + len("answer:")
-    lines = generation[start:].split("\n")
-    answer = next((line.strip() for line in lines if line.strip()), "")
-    # Strip markdown formatting characters
-    answer = re.sub(r"[*_\[\]()]", "", answer)
-    return answer
+
+    def _relaxed_correctness(
+        self, prediction: str, targets: list[str], max_relative_change: float = 0.05
+    ) -> float:
+        def _to_float(text: str) -> tuple[float | None, bool]:
+            text = text.strip()
+            is_percent = text.endswith("%")
+            try:
+                return float(text.rstrip("%")), is_percent
+            except ValueError:
+                return None, False
+
+        def _is_letter(text: str) -> bool:
+            return text.isalpha() and len(text) == 1
+
+        def _preprocess_text(text: str) -> str:
+            if not any(char.isdigit() for char in text):
+                return _normalize_string(text)
+            return _remove_end_punctuation(text).replace(",", "").replace("$", "")
+
+        def _relative_change(a: float, b: float) -> float:
+            return abs(a - b) / max(abs(b), 1e-10)
+
+        def _compare_numeric(a: float, b: float, max_rel: float) -> float:
+            return 1.0 if _relative_change(a, b) <= max_rel else 0.0
+
+        def _compare_text(pred: str, tgt: str) -> float:
+            while pred and pred[-1] in string.punctuation:
+                pred = pred[:-1]
+            return 1.0 if pred.lower() == tgt.lower() else 0.0
+
+        def _to_decimal(value: float, is_percent: bool) -> float:
+            return value / 100 if is_percent else value
+
+        def _compare_numeric_with_percent(
+            pred: float,
+            pred_pct: bool,
+            tgt: float,
+            tgt_pct: bool,
+            max_rel: float,
+        ) -> float:
+            value = _compare_numeric(pred, tgt, max_rel)
+            if value != 1.0 and (pred_pct or tgt_pct):
+                value = max(
+                    value,
+                    _compare_numeric(_to_decimal(pred, pred_pct), tgt, max_rel),
+                    _compare_numeric(pred, _to_decimal(tgt, tgt_pct), max_rel),
+                )
+            return value
+
+        prediction = _preprocess_text(prediction)
+        pred_float, pred_pct = _to_float(prediction)
+
+        values: list[float] = []
+        for target in targets:
+            target = _preprocess_text(target)
+            tgt_float, tgt_pct = _to_float(target)
+
+            if pred_float is not None and tgt_float is not None:
+                value = _compare_numeric_with_percent(
+                    pred_float, pred_pct, tgt_float, tgt_pct, max_relative_change
+                )
+            elif _is_letter(target) and len(prediction) > 0:
+                value = 1.0 if prediction[0].lower() == target.lower() else 0.0
+            else:
+                value = _compare_text(prediction, target)
+
+            values.append(value)
+
+        return max(values)
+
+    def score(self, model_answer: str, reference: str | list[str]) -> float:
+        ref_list = reference if isinstance(reference, list) else [reference]
+        return self._relaxed_correctness(model_answer, ref_list)
 
 
-def _preprocess_text(text: str) -> str:
-    if not any(char.isdigit() for char in text):
-        # Strip surrounding quotes for non-numeric text
-        if (text.startswith('"') and text.endswith('"')) or (
-            text.startswith("'") and text.endswith("'")
-        ):
-            return text[1:-1]
-        return text
-    else:
-        # Strip trailing punctuation (but preserve %) and remove commas/$
-        while (
-            text
-            and (text[-1] in string.punctuation or text[-1].isspace())
-            and text[-1] != "%"
-        ):
-            text = text[:-1]
-        return text.replace(",", "").replace("$", "")
+class _ExplicitPromptRelaxedCorrectness(_RelaxedCorrectness):
+    @staticmethod
+    def _get_final_answer(generation: str) -> str:
+        generation = re.sub(r"([aA]nswer)\**:\**", r"\1:", generation)
+        idx = generation.lower().rfind("answer:")
+        if idx == -1:
+            return ""
+        start = idx + len("answer:")
+        lines = generation[start:].split("\n")
+        answer = next((line.strip() for line in lines if line.strip()), "")
+        return re.sub(r"[*_\[\]\(\)]", "", answer)
+
+    def score(self, model_answer: str, reference: str | list[str]) -> float:
+        parsed = self._get_final_answer(model_answer)
+        if not parsed:
+            return 0.0
+        return super().score(parsed, reference)
 
 
-def _to_float(text: str) -> tuple[float | None, bool]:
-    text = text.strip()
-    is_percent = text.endswith("%")
-    try:
-        value = float(text.rstrip("%"))
-        return value, is_percent
-    except ValueError:
-        return None, False
+_SCORER = _ExplicitPromptRelaxedCorrectness()
 
 
 def _score(response: str, target: str) -> float:
-    pred = _get_final_answer(response)
-    if not pred:
-        return 0.0
-
-    pred = _preprocess_text(pred)
-    target = _preprocess_text(target)
-
-    pred_float, pred_is_pct = _to_float(pred)
-    target_float, target_is_pct = _to_float(target)
-
-    if pred_float is not None and target_float is not None:
-
-        def _rel_eq(a: float, b: float) -> bool:
-            return abs(a - b) / max(abs(b), 1e-10) <= 0.05
-
-        if _rel_eq(pred_float, target_float):
-            return 1.0
-        # Also try percent/decimal equivalence (e.g. "5%" vs "0.05")
-        if pred_is_pct or target_is_pct:
-            if _rel_eq(pred_float / 100 if pred_is_pct else pred_float, target_float):
-                return 1.0
-            if _rel_eq(
-                pred_float, target_float / 100 if target_is_pct else target_float
-            ):
-                return 1.0
-        return 0.0
-    else:
-        # Text comparison: strip trailing punctuation before comparing
-        pred_text = pred
-        while pred_text and pred_text[-1] in string.punctuation:
-            pred_text = pred_text[:-1]
-        return 1.0 if pred_text.lower() == target.lower() else 0.0
+    return _SCORER.score(response, target)
 
 
 def _extract(doc: dict[str, Any]) -> Sample:
