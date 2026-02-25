@@ -9,13 +9,19 @@ import hashlib
 import json
 from unittest.mock import patch
 
+import pytest
 import respx
 from click.testing import CliRunner
 from httpx import Response
 
 from nano_eval import main
-from tasks.chartqa import chartqa
-from tasks.gsm8k import gsm8k_cot_llama
+from tasks.chartqa import _score as chartqa_score, chartqa
+from tasks.gsm8k import (
+    _extract_gsm8k_answer,
+    _normalize,
+    _score as gsm8k_score,
+    gsm8k_cot_llama,
+)
 
 # GSM8K: 10 mock responses keyed by prompt hash (8 correct, 2 wrong = 80% accuracy)
 # Hashes are for the last user message (the question) in multiturn fewshot format
@@ -214,6 +220,147 @@ class TestE2E:
         assert isinstance(requests[0]["duration_seconds"], float)
         assert requests[4]["target"] == "23"
         assert requests[4]["score"] == 1.0
+
+
+class TestGSM8KScoring:
+    """Edge-case tests for GSM8K scoring against lm-eval reference behavior."""
+
+    @pytest.mark.parametrize(
+        "response, target, expected",
+        [
+            # Basic correct / incorrect
+            ("The final answer is 42", "42", 1.0),
+            ("The final answer is 99", "42", 0.0),
+            # Negative numbers
+            ("The final answer is -5", "-5", 1.0),
+            ("The final answer is -100", "100", 0.0),
+            # Decimals (string match, not numeric — "5.0" != "5")
+            ("The final answer is 3.14", "3.14", 1.0),
+            ("The final answer is 5.0", "5", 0.0),
+            # Commas and dollar signs stripped by _normalize
+            ("The final answer is 1,234", "1234", 1.0),
+            ("The final answer is $50", "50", 1.0),
+            ("The final answer is $1,234", "1234", 1.0),
+            # Single-digit (must match via -?[0-9]+ alt in regex)
+            ("The final answer is 3", "3", 1.0),
+            # Self-correction: last "The final answer is" wins
+            (
+                "The final answer is 5. Wait, The final answer is 12",
+                "12",
+                1.0,
+            ),
+            (
+                "The final answer is 5. Wait, The final answer is 12",
+                "5",
+                0.0,
+            ),
+            # Fallback: no "The final answer is", uses last number
+            ("So the answer equals 42", "42", 1.0),
+            ("I calculated 10 + 20 = 30 then 30 + 12 = 42", "42", 1.0),
+            ("I calculated 10 + 20 = 30 then 30 + 12 = 42", "30", 0.0),
+            # No numbers at all -> full response returned, won't match
+            ("I don't know", "42", 0.0),
+            # Trailing period: "42." captured by regex, stripped by _normalize
+            ("The final answer is 42.", "42", 1.0),
+            # Target with #### prefix (defensive normalization)
+            ("The final answer is 42", "#### 42", 1.0),
+            # Numbers in CoT before the final answer
+            ("5 + 3 = 8. 8 * 2 = 16. The final answer is 16", "16", 1.0),
+        ],
+    )
+    def test_score(self, response, target, expected):
+        assert gsm8k_score(response, target) == expected
+
+    @pytest.mark.parametrize(
+        "response, expected",
+        [
+            ("The final answer is 42", "42"),
+            ("The final answer is -5", "-5"),
+            ("The final answer is $1,234", "$1,234"),
+            # Last match wins
+            ("The final answer is 5. The final answer is 12", "12"),
+            # Fallback to last number
+            ("The answer is 42", "42"),
+            ("10 + 20 = 30", "30"),
+            # No numbers -> return full response
+            ("no numbers here", "no numbers here"),
+        ],
+    )
+    def test_extract_answer(self, response, expected):
+        assert _extract_gsm8k_answer(response) == expected
+
+    @pytest.mark.parametrize(
+        "text, expected",
+        [
+            ("42", "42"),
+            ("$1,234", "1234"),
+            ("#### 42", "42"),
+            ("42.", "42"),
+            ("HELLO", "hello"),
+        ],
+    )
+    def test_normalize(self, text, expected):
+        assert _normalize(text) == expected
+
+
+class TestChartQAScoring:
+    """Edge-case tests for ChartQA scoring against lm-eval reference behavior."""
+
+    @pytest.mark.parametrize(
+        "response, target, expected",
+        [
+            # Numeric exact match
+            ("Final Answer: 42", "42", 1.0),
+            # Within 5% tolerance: 105/100 = 5% relative change
+            ("Final Answer: 105", "100", 1.0),
+            # Beyond 5% tolerance: 106/100 = 6% relative change
+            ("Final Answer: 106", "100", 0.0),
+            # Boundary: target=200, pred=190 -> 10/200 = 5% exactly
+            ("Final Answer: 190", "200", 1.0),
+            # Just beyond: target=200, pred=189 -> 11/200 = 5.5%
+            ("Final Answer: 189", "200", 0.0),
+            # Target = 0: only pred ≈ 0 matches (denom becomes 1e-10)
+            ("Final Answer: 0", "0", 1.0),
+            ("Final Answer: 0.001", "0", 0.0),
+            # Negative numbers
+            ("Final Answer: -10", "-10", 1.0),
+            ("Final Answer: -95", "-100", 1.0),  # 5% within
+            # Percentage/decimal equivalence: "50%" and "0.5"
+            ("Final Answer: 50%", "0.5", 1.0),
+            ("Final Answer: 0.5", "50%", 1.0),
+            ("Final Answer: 5%", "0.05", 1.0),
+            # Same percentage: "50%" vs "50%"
+            ("Final Answer: 50%", "50%", 1.0),
+            # Dollar and commas in prediction
+            ("Final Answer: $1,234", "1234", 1.0),
+            # Text: case-insensitive exact match
+            ("Final Answer: Yes", "Yes", 1.0),
+            ("Final Answer: yes", "Yes", 1.0),
+            ("Final Answer: YES", "Yes", 1.0),
+            # Text: trailing punctuation stripped from prediction
+            ("Final Answer: Yes.", "Yes", 1.0),
+            # Text: wrong answer
+            ("Final Answer: No", "Yes", 0.0),
+            # No "answer:" marker -> score 0
+            ("I think the result is 42", "42", 0.0),
+            # Empty answer after "answer:" -> score 0
+            ("Final Answer:", "42", 0.0),
+            # Markdown formatting stripped: **42** -> 42
+            ("Final Answer: **42**", "42", 1.0),
+            # Self-correction: last "answer:" wins
+            (
+                "Answer: 999. Wait, let me recalculate. Answer: 42",
+                "42",
+                1.0,
+            ),
+            # Quoted target text
+            ("Final Answer: hello", '"hello"', 1.0),
+            # Multiline: answer on next line after "answer:"
+            ("Final Answer:\n42", "42", 1.0),
+        ],
+    )
+    def test_score(self, response, target, expected):
+        assert chartqa_score(response, target) == expected
 
 
 class TestCLI:
