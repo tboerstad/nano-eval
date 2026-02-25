@@ -76,8 +76,12 @@ def _format_gsm8k_prompt(question: str) -> list[dict[str, str]]:
 
 
 def _extract_gsm8k_answer(response: str) -> str:
-    if match := _FINAL_ANSWER_RE.search(response):
-        return match.group(1)
+    # Use findall and take the last match so reasoning models that self-correct
+    # (e.g. "The final answer is 5. Wait... The final answer is 12") are scored
+    # on their final answer, matching lm-eval's group_select: -1 behavior.
+    matches = _FINAL_ANSWER_RE.findall(response)
+    if matches:
+        return matches[-1]
     matches = _NUM_RE.findall(response)
     return matches[-1] if matches else response
 
