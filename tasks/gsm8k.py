@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import string
 from typing import Any
 
 from core import Prompt, Sample, Task
@@ -56,12 +57,15 @@ _GSM8K_TEMPLATE = (
 _NUM_RE = re.compile(r"-?[$0-9.,]{2,}|-?[0-9]+")
 _FINAL_ANSWER_RE = re.compile(rf"The final answer is ({_NUM_RE.pattern})")
 
+# Matches lm-eval's exact_match with ignore_punctuation=True and
+# regexes_to_ignore=["(?s).*#### ", "\\.$"]
+_PUNCT_TABLE = str.maketrans("", "", string.punctuation)
+
 
 def _normalize(text: str) -> str:
-    text = re.sub(r"[$,]", "", text)
     text = re.sub(r"(?s).*#### ", "", text)
     text = re.sub(r"\.$", "", text)
-    return text.lower().strip()
+    return text.translate(_PUNCT_TABLE).strip()
 
 
 def _format_gsm8k_prompt(question: str) -> list[dict[str, str]]:
