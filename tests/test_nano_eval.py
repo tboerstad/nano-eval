@@ -17,7 +17,7 @@ from nano_eval import main
 from tasks.chartqa import chartqa
 from tasks.gsm8k import gsm8k_cot_llama
 
-# GSM8K: 10 mock responses keyed by prompt hash (7 correct, 3 wrong = 70% accuracy)
+# GSM8K: 10 mock responses keyed by prompt hash (8 correct, 2 wrong = 80% accuracy)
 # Hashes are for the last user message (the question) in multiturn fewshot format
 # fmt: off
 GSM8K_RESPONSES = {
@@ -26,7 +26,7 @@ GSM8K_RESPONSES = {
     "dbc356": "The final answer is 64",     # ✓ target=64
     "a1f1f0": "The final answer is 20",     # ✓ target=20
     "050045": "The final answer is 999",    # ✗ target=45
-    "464d52": "The final answer is 999",    # ✗ target=540
+    "464d52": "I first thought The final answer is 999, but I made an error. The final answer is 540",  # ✓ target=540 (tests last-match)
     "64816f": "The final answer is 999",    # ✗ target=160
     "967e59": "The final answer is 460",    # ✓ target=460
     "8c5053": "The final answer is 260",    # ✓ target=260
@@ -34,7 +34,7 @@ GSM8K_RESPONSES = {
 }
 # fmt: on
 
-# ChartQA: 10 mock responses keyed by prompt hash (7 correct, 3 wrong = 70% accuracy)
+# ChartQA: 10 mock responses keyed by prompt hash (8 correct, 2 wrong = 80% accuracy)
 # fmt: off
 CHARTQA_RESPONSES = {
     "eed350": "FINAL ANSWER: 6",      # ✓ target=6
@@ -42,7 +42,7 @@ CHARTQA_RESPONSES = {
     "f9f65c": "FINAL ANSWER: No",     # ✓ target=No
     "fa51ed": "FINAL ANSWER: 14",     # ✓ target=14
     "8e6330": "FINAL ANSWER: 62",     # ✓ target=62
-    "b2bd79": "FINAL ANSWER: 999",    # ✗ target=23
+    "b2bd79": "Looking at the chart: FINAL ANSWER: 999. Wait, I need to recount... FINAL ANSWER: 23",  # ✓ target=23 (tests last-match)
     "372e0a": "FINAL ANSWER: wrong",  # ✗ target=Yes
     "833fc2": "FINAL ANSWER: 0.03",   # ✓ target=0.03
     "59f1fa": "FINAL ANSWER: 0.57",   # ✓ target=0.57
@@ -119,7 +119,7 @@ class TestE2E:
                 assert result.exit_code == 0, result.output
 
         results = json.loads((tmp_path / "eval_results.json").read_text())
-        assert results["results"]["text"]["metrics"]["accuracy"] == 0.7
+        assert results["results"]["text"]["metrics"]["accuracy"] == 0.8
         assert results["results"]["text"]["samples_hash"] == GSM8K_HASH
 
         requests = [
@@ -139,7 +139,7 @@ class TestE2E:
         assert "duration_seconds" in requests[0]
         assert isinstance(requests[0]["duration_seconds"], float)
         assert requests[3]["target"] == "540"
-        assert requests[3]["score"] == 0.0
+        assert requests[3]["score"] == 1.0
 
     def test_chartqa_evaluation(self, tmp_path):
         """ChartQA evaluation with real dataset, mocked API."""
@@ -193,7 +193,7 @@ class TestE2E:
                 assert result.exit_code == 0, result.output
 
         results = json.loads((tmp_path / "eval_results.json").read_text())
-        assert results["results"]["vision"]["metrics"]["accuracy"] == 0.7
+        assert results["results"]["vision"]["metrics"]["accuracy"] == 0.8
         assert results["results"]["vision"]["samples_hash"] == CHARTQA_HASH
 
         requests = [
@@ -213,7 +213,7 @@ class TestE2E:
         assert "duration_seconds" in requests[0]
         assert isinstance(requests[0]["duration_seconds"], float)
         assert requests[4]["target"] == "23"
-        assert requests[4]["score"] == 0.0
+        assert requests[4]["score"] == 1.0
 
 
 class TestCLI:
