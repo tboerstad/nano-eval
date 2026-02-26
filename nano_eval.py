@@ -246,7 +246,7 @@ def _print_results_table(result: EvalResult) -> None:
     "--dataset-seed",
     type=int,
     default=None,
-    help="Shuffle seed; no shuffling if omitted",
+    help="Controls sample order; no shuffling if omitted",
 )
 @click.option(
     "--request-timeout",
