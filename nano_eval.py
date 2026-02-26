@@ -122,7 +122,7 @@ def evaluate(
     max_samples: int | None = None,
     output_path: Path | None = None,
     log_requests: bool = False,
-    dataset_seed: int = 42,
+    dataset_seed: int | None = None,
     request_timeout: int = 300,
 ) -> EvalResult:
     """Run evaluations for specified modalities and return results dict."""
@@ -243,7 +243,10 @@ def _print_results_table(result: EvalResult) -> None:
     help="Save per-request results as JSONL (requires --output-path)",
 )
 @click.option(
-    "--dataset-seed", default=42, show_default=True, help="Controls sample order"
+    "--dataset-seed",
+    type=int,
+    default=None,
+    help="Optional shuffling of samples",
 )
 @click.option(
     "--request-timeout",
@@ -268,7 +271,7 @@ def main(
     max_samples: int | None,
     output_path: str | None,
     log_requests: bool,
-    dataset_seed: int,
+    dataset_seed: int | None,
     request_timeout: int,
     verbose: int,
 ) -> None:

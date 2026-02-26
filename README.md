@@ -47,7 +47,7 @@ Options:
                                   this directory
   --log-requests                  Save per-request results as JSONL (requires
                                   --output-path)
-  --dataset-seed INTEGER          Controls sample order  [default: 42]
+  --dataset-seed INTEGER          Optional shuffling of samples
   --request-timeout INTEGER       Timeout in seconds for each API request
                                   [default: 300]
   -v, --verbose                   Increase verbosity (up to -vvv)
