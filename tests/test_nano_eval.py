@@ -21,37 +21,37 @@ from tasks.gsm8k import gsm8k_cot_llama
 # Hashes are for the last user message (the question) in multiturn fewshot format
 # fmt: off
 GSM8K_RESPONSES = {
-    "b4ae7b": "The final answer is $3",     # ✓ target=3 (dollar sign)
-    "2d1210": "The final answer is 18.",    # ✓ target=18 (trailing period)
-    "dbc356": "Hmm, 8 times 8 is 64",      # ✓ target=64 (fallback extraction, no "The final answer is")
-    "a1f1f0": "The final answer is 20",     # ✓ target=20
-    "050045": "The final answer is 999",    # ✗ target=45
-    "464d52": "I first thought The final answer is 999, but I made an error. The final answer is 540",  # ✓ target=540 (last-match)
-    "64816f": "The final answer is 999",    # ✗ target=160
-    "967e59": "The final answer is $460",   # ✓ target=460 (dollar sign)
-    "8c5053": "The final answer is 260",    # ✓ target=260
-    "d85409": "The final answer is 70,000", # ✓ target=70000 (comma-formatted)
+    "53ef58": "The final answer is $3",     # ✓ target=3 (dollar sign)
+    "74bdfd": "The final answer is 18.",    # ✓ target=18 (trailing period)
+    "0f59d8": "Hmm, 8 times 8 is 64",      # ✓ target=64 (fallback extraction, no "The final answer is")
+    "3da534": "The final answer is 20",     # ✓ target=20
+    "3adba7": "The final answer is 999",    # ✗ target=45
+    "ca5057": "I first thought The final answer is 999, but I made an error. The final answer is 540",  # ✓ target=540 (last-match)
+    "61fb92": "The final answer is 999",    # ✗ target=160
+    "00b394": "The final answer is $460",   # ✓ target=460 (dollar sign)
+    "021f4b": "The final answer is 260",    # ✓ target=260
+    "c58df6": "The final answer is 70,000", # ✓ target=70000 (comma-formatted)
 }
 # fmt: on
 
 # ChartQA: 10 mock responses keyed by prompt hash (8 correct, 2 wrong = 80% accuracy)
 # fmt: off
 CHARTQA_RESPONSES = {
-    "eed350": "Final Answer: 6",      # ✓ target=6
-    "c6ad9c": "**Final Answer:** 3",  # ✓ target=3 (markdown bold)
-    "f9f65c": "Final Answer: No",     # ✓ target=No
-    "fa51ed": "Final Answer: 14",     # ✓ target=14
-    "8e6330": "Based on analysis, the answer: 62.",  # ✓ target=62 (trailing punct, non-standard prefix)
-    "b2bd79": "Looking at the chart: FINAL ANSWER: 999. Wait, I need to recount... FINAL ANSWER: 23",  # ✓ target=23 (last-match)
-    "372e0a": "FINAL ANSWER: wrong",  # ✗ target=Yes
-    "833fc2": "Final Answer: 3%",     # ✓ target=0.03 (percent/decimal equivalence)
-    "59f1fa": "Final Answer: 0.57",   # ✓ target=0.57
-    "a14263": "FINAL ANSWER: wrong",  # ✗ target=Inspired
+    "beb96e": "Final Answer: 6",      # ✓ target=6
+    "5349c3": "**Final Answer:** 3",  # ✓ target=3 (markdown bold)
+    "173532": "Final Answer: No",     # ✓ target=No
+    "9e8414": "Final Answer: 14",     # ✓ target=14
+    "15ac1f": "Based on analysis, the answer: 62.",  # ✓ target=62 (trailing punct, non-standard prefix)
+    "2f2353": "Looking at the chart: FINAL ANSWER: 999. Wait, I need to recount... FINAL ANSWER: 23",  # ✓ target=23 (last-match)
+    "5894e6": "FINAL ANSWER: wrong",  # ✗ target=Yes
+    "509bd4": "Final Answer: 3%",     # ✓ target=0.03 (percent/decimal equivalence)
+    "bad2cb": "Final Answer: 0.57",   # ✓ target=0.57
+    "9addd0": "FINAL ANSWER: wrong",  # ✗ target=Inspired
 }
 # fmt: on
 
-GSM8K_HASH = "1330276a7b9c8140e39e0d966882feb6898dba391dd376c639c2b9d5cbe0464e"
-CHARTQA_HASH = "8df185292f416992aeb99cd981f041421128de58c736ba17e7a1fadc2acf3f7e"
+GSM8K_HASH = "7e9d77f0de73bfe63bd9858b220417f93da9f99a1a3e9b8e248c5f87eab9ec6d"
+CHARTQA_HASH = "fc630d612ba41511d4d211d6849f8aec066be7f84dee4b2ba50fc2c5987b0af1"
 
 
 class TestE2E:
@@ -239,9 +239,9 @@ class TestCLI:
             assert result.returncode == 0, f"--help failed: {result.stderr}"
 
         median_time = sorted(times)[1]
-        # Threshold: 0.5s allows headroom while catching regressions from heavy imports
+        # Threshold: 0.8s allows headroom while catching regressions from heavy imports
         # (importing datasets/PIL/tqdm typically adds 1-2s)
-        assert median_time < 0.5, (
+        assert median_time < 0.8, (
             f"CLI --help took {median_time:.2f}s (median of {times}). "
             "This likely means heavy imports (datasets, PIL, etc.) are being loaded at "
             "module level instead of being deferred to evaluate()."

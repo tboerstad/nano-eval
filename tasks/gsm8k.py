@@ -48,7 +48,7 @@ GSM8K_FEWSHOT = [
 _GSM8K_TEMPLATE = (
     "Given the following problem, reason and give a final answer to the problem.\n"
     "Problem: {question}\n"
-    'Your response should end with "The final answer is [answer]" where [answer] is the response to the problem.'
+    'Your response should end with "The final answer is [answer]" where [answer] is the response to the problem.\n'
 )
 
 # Matches numbers in two forms:
