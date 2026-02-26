@@ -246,7 +246,7 @@ def _print_results_table(result: EvalResult) -> None:
     "--dataset-seed",
     type=int,
     default=None,
-    help="Controls sample order; no shuffling if omitted",
+    help="Optional shuffling of prompts",
 )
 @click.option(
     "--request-timeout",
