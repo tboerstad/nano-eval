@@ -46,7 +46,7 @@ class Prompt:
                 for img in self.images
                 if (b64 := _encode_image(img))
             ]
-            content.append({"type": "text", "text": self.text.strip()})
+            content.append({"type": "text", "text": self.text})
             return [{"role": "user", "content": content}]
         if isinstance(self.text, list):
             return self.text
