@@ -13,7 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import datasets
 import datasets.config as ds_config
@@ -22,13 +22,6 @@ from datasets import Dataset, DownloadMode
 from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
-
-from nano_eval import (
-    DEFAULT_MAX_CONCURRENT,
-    DEFAULT_REQUEST_TIMEOUT,
-    Metrics,
-    TaskResult,
-)
 
 logger = logging.getLogger("nano_eval.core")
 
@@ -127,6 +120,23 @@ class Task:
             ds_config.HF_HUB_OFFLINE = old_offline
 
 
+class Metrics(TypedDict):
+    accuracy: float
+    accuracy_stderr: float
+
+
+class TaskResult(TypedDict):
+    elapsed_seconds: float
+    metrics: Metrics
+    num_samples: int
+    samples_hash: str
+    task: str
+    modality: str
+    total_input_tokens: int
+    total_output_tokens: int
+    tokens_per_second: float
+
+
 @dataclass
 class ApiConfig:
     """API endpoint configuration."""
@@ -134,8 +144,8 @@ class ApiConfig:
     url: str
     model: str
     api_key: str = ""
-    max_concurrent: int = DEFAULT_MAX_CONCURRENT
-    timeout: int = DEFAULT_REQUEST_TIMEOUT
+    max_concurrent: int = 8
+    timeout: int = 30
     gen_kwargs: dict[str, Any] = field(default_factory=dict)
 
 

@@ -7,14 +7,16 @@ import json
 import logging
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import click
 import httpx
 
+if TYPE_CHECKING:
+    from core import Metrics, TaskResult
+
 __all__ = ["evaluate", "EvalResult", "Metrics", "TaskResult"]
 
-# Defaults — single source of truth for CLI, evaluate(), and ApiConfig.
 DEFAULT_MAX_CONCURRENT = 8
 DEFAULT_REQUEST_TIMEOUT = 30
 DEFAULT_EXTRA_REQUEST_PARAMS = "temperature=0,max_tokens=256,seed=42"
@@ -22,28 +24,21 @@ DEFAULT_EXTRA_REQUEST_PARAMS = "temperature=0,max_tokens=256,seed=42"
 logger = logging.getLogger("nano_eval")
 
 
-class Metrics(TypedDict):
-    accuracy: float
-    accuracy_stderr: float
-
-
-class TaskResult(TypedDict):
-    elapsed_seconds: float
-    metrics: Metrics
-    num_samples: int
-    samples_hash: str
-    task: str
-    modality: str
-    total_input_tokens: int
-    total_output_tokens: int
-    tokens_per_second: float
-
-
 class EvalResult(TypedDict):
     config: dict[str, Any]
     framework_version: str
     results: dict[str, TaskResult]
     total_seconds: float
+
+
+def __getattr__(name: str) -> Any:
+    if name in {"Metrics", "TaskResult"}:
+        from core import Metrics, TaskResult
+
+        globals()["Metrics"] = Metrics
+        globals()["TaskResult"] = TaskResult
+        return globals()[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class _LevelPrefixFormatter(logging.Formatter):
