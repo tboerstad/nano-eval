@@ -23,7 +23,13 @@ from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
 
-from nano_eval import Metrics, TaskResult
+from nano_eval import (
+    DEFAULT_API_KEY,
+    DEFAULT_MAX_CONCURRENT,
+    DEFAULT_REQUEST_TIMEOUT,
+    Metrics,
+    TaskResult,
+)
 
 logger = logging.getLogger("nano_eval.core")
 
@@ -128,9 +134,9 @@ class ApiConfig:
 
     url: str
     model: str
-    api_key: str = ""
-    max_concurrent: int = 8
-    timeout: int = 30
+    api_key: str = DEFAULT_API_KEY
+    max_concurrent: int = DEFAULT_MAX_CONCURRENT
+    timeout: int = DEFAULT_REQUEST_TIMEOUT
     gen_kwargs: dict[str, Any] = field(default_factory=dict)
 
 

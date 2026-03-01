@@ -49,7 +49,7 @@ Options:
                                   --output-path)
   --dataset-seed INTEGER          Optional shuffling of samples
   --request-timeout INTEGER       Timeout in seconds for each API request
-                                  [default: 300]
+                                  [default: 30]
   -v, --verbose                   Increase verbosity (up to -vvv)
   --version                       Show the version and exit.
   --help                          Show this message and exit.

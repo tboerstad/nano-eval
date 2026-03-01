@@ -16,6 +16,12 @@ __all__ = ["evaluate", "EvalResult", "Metrics", "TaskResult"]
 
 logger = logging.getLogger("nano_eval")
 
+# Defaults — single source of truth for CLI, evaluate(), and ApiConfig
+DEFAULT_API_KEY = ""
+DEFAULT_MAX_CONCURRENT = 8
+DEFAULT_REQUEST_TIMEOUT = 30
+DEFAULT_GEN_KWARGS_STR = "temperature=0,max_tokens=256,seed=42"
+
 
 class Metrics(TypedDict):
     accuracy: float
@@ -116,14 +122,14 @@ def evaluate(
     modalities: list[str],
     base_url: str | None = None,
     model: str | None = None,
-    api_key: str = "",
-    max_concurrent: int = 8,
+    api_key: str = DEFAULT_API_KEY,
+    max_concurrent: int = DEFAULT_MAX_CONCURRENT,
     gen_kwargs: dict[str, Any] | None = None,
     max_samples: int | None = None,
     output_path: Path | None = None,
     log_requests: bool = False,
     dataset_seed: int | None = None,
-    request_timeout: int = 30,
+    request_timeout: int = DEFAULT_REQUEST_TIMEOUT,
 ) -> EvalResult:
     """Run evaluations for specified modalities and return results dict."""
     from core import ApiConfig, run_task
@@ -222,12 +228,14 @@ def _print_results_table(result: EvalResult) -> None:
     help="OpenAI-compatible API endpoint; tries 127.0.0.1:8000/8080 if omitted",
 )
 @click.option("--model", help="Model name; auto-detected if endpoint serves one model")
-@click.option("--api-key", default="", help="Bearer token for API authentication")
-@click.option("--max-concurrent", default=8, show_default=True)
+@click.option(
+    "--api-key", default=DEFAULT_API_KEY, help="Bearer token for API authentication"
+)
+@click.option("--max-concurrent", default=DEFAULT_MAX_CONCURRENT, show_default=True)
 @click.option(
     "--extra-request-params",
     "gen_kwargs",
-    default="temperature=0,max_tokens=256,seed=42",
+    default=DEFAULT_GEN_KWARGS_STR,
     show_default=True,
     help="API params as key=value,...",
 )
@@ -250,7 +258,7 @@ def _print_results_table(result: EvalResult) -> None:
 )
 @click.option(
     "--request-timeout",
-    default=30,
+    default=DEFAULT_REQUEST_TIMEOUT,
     show_default=True,
     help="Timeout in seconds for each API request",
 )
