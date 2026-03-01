@@ -9,6 +9,7 @@ import hashlib
 import json
 from unittest.mock import patch
 
+import httpx
 import respx
 from click.testing import CliRunner
 from httpx import Response
@@ -214,6 +215,76 @@ class TestE2E:
         assert isinstance(requests[0]["duration_seconds"], float)
         assert requests[4]["target"] == "23"
         assert requests[4]["score"] == 1.0
+
+    def test_timeout_excluded_from_results(self, tmp_path):
+        """Timed-out requests are excluded from results instead of crashing."""
+        real_samples = gsm8k_cot_llama.load_samples(10)
+        timeout_hashes = {"53ef58", "3adba7"}
+
+        def api_response(request):
+            body = json.loads(request.content)
+            last_user_msg = [m for m in body["messages"] if m["role"] == "user"][-1]
+            prompt = last_user_msg["content"]
+            h = hashlib.md5(prompt.encode()).hexdigest()[:6]
+            if h in timeout_hashes:
+                raise httpx.ReadTimeout("simulated timeout")
+            content = GSM8K_RESPONSES[h]
+            return Response(
+                200,
+                json={
+                    "choices": [
+                        {"message": {"content": content}, "finish_reason": "stop"}
+                    ],
+                    "usage": {
+                        "prompt_tokens": 10,
+                        "completion_tokens": 5,
+                        "total_tokens": 15,
+                    },
+                },
+            )
+
+        with respx.mock:
+            respx.get("http://test.com/v1/chat/completions").mock(
+                return_value=Response(200)
+            )
+            respx.get("http://test.com/v1/models").mock(
+                return_value=Response(
+                    200, json={"object": "list", "data": [{"id": "test"}]}
+                )
+            )
+            respx.post("http://test.com/v1/chat/completions").mock(
+                side_effect=api_response
+            )
+
+            with patch.object(
+                type(gsm8k_cot_llama), "load_samples", return_value=real_samples
+            ):
+                runner = CliRunner()
+                result = runner.invoke(
+                    main,
+                    [
+                        "--modality=text",
+                        "--base-url=http://test.com/v1",
+                        "--max-samples=10",
+                        "--output-path",
+                        str(tmp_path),
+                        "--log-requests",
+                    ],
+                )
+                assert result.exit_code == 0, result.output
+
+        results = json.loads((tmp_path / "eval_results.json").read_text())
+        task_result = results["results"]["text"]
+        assert task_result["num_samples"] == 8
+
+        requests = [
+            json.loads(line)
+            for line in (tmp_path / "request_log_text.jsonl")
+            .read_text()
+            .strip()
+            .split("\n")
+        ]
+        assert len(requests) == 8
 
 
 class TestCLI:
