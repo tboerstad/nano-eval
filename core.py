@@ -137,6 +137,13 @@ class TaskResult(TypedDict):
     tokens_per_second: float
 
 
+class EvalResult(TypedDict):
+    config: dict[str, Any]
+    framework_version: str
+    results: dict[str, TaskResult]
+    total_seconds: float
+
+
 @dataclass
 class ApiConfig:
     """API endpoint configuration."""

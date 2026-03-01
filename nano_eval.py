@@ -7,38 +7,19 @@ import json
 import logging
 from importlib.metadata import version
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any
 
 import click
 import httpx
 
 if TYPE_CHECKING:
-    from core import Metrics, TaskResult
-
-__all__ = ["evaluate", "EvalResult", "Metrics", "TaskResult"]
+    from core import EvalResult, TaskResult
 
 DEFAULT_MAX_CONCURRENT = 8
 DEFAULT_REQUEST_TIMEOUT = 30
 DEFAULT_EXTRA_REQUEST_PARAMS = "temperature=0,max_tokens=256,seed=42"
 
 logger = logging.getLogger("nano_eval")
-
-
-class EvalResult(TypedDict):
-    config: dict[str, Any]
-    framework_version: str
-    results: dict[str, TaskResult]
-    total_seconds: float
-
-
-def __getattr__(name: str) -> Any:
-    if name in {"Metrics", "TaskResult"}:
-        from core import Metrics, TaskResult
-
-        globals()["Metrics"] = Metrics
-        globals()["TaskResult"] = TaskResult
-        return globals()[name]
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class _LevelPrefixFormatter(logging.Formatter):
@@ -126,7 +107,7 @@ def evaluate(
     request_timeout: int = DEFAULT_REQUEST_TIMEOUT,
 ) -> EvalResult:
     """Run evaluations for specified modalities and return results dict."""
-    from core import ApiConfig, run_task
+    from core import ApiConfig, EvalResult, run_task
     from tasks import TASKS
 
     if base_url is None:
