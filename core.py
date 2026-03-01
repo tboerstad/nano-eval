@@ -128,9 +128,9 @@ class ApiConfig:
 
     url: str
     model: str
+    timeout: int
     api_key: str = ""
     max_concurrent: int = 8
-    timeout: int = 30
     gen_kwargs: dict[str, Any] = field(default_factory=dict)
 
 

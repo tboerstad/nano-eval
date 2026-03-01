@@ -114,6 +114,7 @@ def _list_models(base_url: str, api_key: str = "") -> list[str]:
 
 def evaluate(
     modalities: list[str],
+    request_timeout: int,
     base_url: str | None = None,
     model: str | None = None,
     api_key: str = "",
@@ -123,7 +124,6 @@ def evaluate(
     output_path: Path | None = None,
     log_requests: bool = False,
     dataset_seed: int | None = None,
-    request_timeout: int = 30,
 ) -> EvalResult:
     """Run evaluations for specified modalities and return results dict."""
     from core import ApiConfig, run_task
