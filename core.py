@@ -130,7 +130,7 @@ class ApiConfig:
     model: str
     api_key: str = ""
     max_concurrent: int = 8
-    timeout: int = 300
+    timeout: int = 30
     gen_kwargs: dict[str, Any] = field(default_factory=dict)
 
 
@@ -138,9 +138,13 @@ async def _request(
     client: httpx.AsyncClient,
     url: str,
     payload: dict[str, Any],
-) -> dict[str, Any]:
+) -> dict[str, Any] | None:
     t0 = time.perf_counter()
-    resp = await client.post(url, json=payload)
+    try:
+        resp = await client.post(url, json=payload)
+    except httpx.TimeoutException:
+        logger.warning(f"Request timed out after {time.perf_counter() - t0:.1f}s")
+        return None
     if resp.is_success:
         data = resp.json()
         choice = data["choices"][0]
@@ -158,7 +162,7 @@ async def complete(
     prompts: list[Prompt],
     config: ApiConfig,
     progress_desc: str = "Running evals",
-) -> list[dict[str, Any]]:
+) -> list[dict[str, Any] | None]:
     """Run batch of chat completions with concurrency control."""
     headers: dict[str, str] = {"Content-Type": "application/json"}
     if config.api_key:
@@ -170,7 +174,7 @@ async def complete(
         headers=headers,
         trust_env=True,
     ) as client:
-        tasks: list[asyncio.Task[dict[str, Any]]] = []
+        tasks: list[asyncio.Task[dict[str, Any] | None]] = []
         for prompt in prompts:
             payload: dict[str, Any] = {
                 "model": config.model,
@@ -235,8 +239,13 @@ async def run_task(
         f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
     )
     t0 = time.perf_counter()
-    responses = await complete(prompts, config, f"Running {modality} eval")
+    raw_responses = await complete(prompts, config, f"Running {modality} eval")
     elapsed = time.perf_counter() - t0
+
+    timeout_count = sum(1 for r in raw_responses if r is None)
+    valid = [(s, r) for s, r in zip(samples, raw_responses) if r is not None]
+    valid_samples = [s for s, _ in valid]
+    responses = [r for _, r in valid]
 
     reason_counts = Counter(r["stop_reason"] for r in responses)
     non_stop = len(responses) - reason_counts.get("stop", 0)
@@ -246,11 +255,11 @@ async def run_task(
             f"Reasons: {dict(reason_counts)}"
         )
 
-    scores = [task.score(r["answer"], s.target) for r, s in zip(responses, samples)]
-    n = len(samples)
+    scores = [task.score(r["answer"], s.target) for s, r in valid]
+    n = len(valid)
 
     if logger.isEnabledFor(logging.DEBUG):
-        for i, (s, r, score) in enumerate(zip(samples, responses, scores)):
+        for i, (s, r, score) in enumerate(zip(valid_samples, responses, scores)):
             status = "PASS" if score == 1.0 else "FAIL"
             logger.debug(
                 f"[{i + 1}/{n} {status}] target={s.target!r} got={r['answer']!r}"
@@ -261,6 +270,12 @@ async def run_task(
     logger.debug(
         f"{task.name}: accuracy={accuracy:.4f}+/-{stderr:.4f} ({elapsed:.2f}s)"
     )
+
+    if timeout_count:
+        logger.error(
+            f"{timeout_count}/{len(raw_responses)} request(s) timed out "
+            f"and were excluded from results"
+        )
 
     request_logs = [
         {
@@ -274,7 +289,7 @@ async def run_task(
             "output_tokens": r["output_tokens"],
             "duration_seconds": r["duration_seconds"],
         }
-        for i, (s, r, score) in enumerate(zip(samples, responses, scores))
+        for i, (s, r, score) in enumerate(zip(valid_samples, responses, scores))
     ]
 
     total_input = sum(r["input_tokens"] for r in responses)

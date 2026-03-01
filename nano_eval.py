@@ -123,7 +123,7 @@ def evaluate(
     output_path: Path | None = None,
     log_requests: bool = False,
     dataset_seed: int | None = None,
-    request_timeout: int = 300,
+    request_timeout: int = 30,
 ) -> EvalResult:
     """Run evaluations for specified modalities and return results dict."""
     from core import ApiConfig, run_task
@@ -250,7 +250,7 @@ def _print_results_table(result: EvalResult) -> None:
 )
 @click.option(
     "--request-timeout",
-    default=300,
+    default=30,
     show_default=True,
     help="Timeout in seconds for each API request",
 )
