@@ -6,7 +6,7 @@ import re
 import string
 from typing import Any
 
-from core import Prompt, Sample, Task
+from nano_eval.core import Prompt, Sample, Task
 
 _CHARTQA_REVISION = "b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5"
 

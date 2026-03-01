@@ -15,8 +15,8 @@ from click.testing import CliRunner
 from httpx import Response
 
 from nano_eval import main
-from tasks.chartqa import chartqa
-from tasks.gsm8k import gsm8k_cot_llama
+from nano_eval.tasks.chartqa import chartqa
+from nano_eval.tasks.gsm8k import gsm8k_cot_llama
 
 # GSM8K: 10 mock responses keyed by prompt hash (8 correct, 2 wrong = 80% accuracy)
 # Hashes are for the last user message (the question) in multiturn fewshot format
