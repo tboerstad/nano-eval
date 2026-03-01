@@ -275,18 +275,22 @@ def main(
     httpx_levels = [logging.WARNING, logging.WARNING, logging.INFO, logging.DEBUG]
     logging.getLogger("httpx").setLevel(httpx_levels[min(verbose, 3)])
 
-    result = evaluate(
-        modalities=list(modalities),
-        base_url=base_url,
-        model=model,
-        api_key=api_key,
-        max_concurrent=max_concurrent,
-        gen_kwargs=_parse_kwargs(gen_kwargs),
-        max_samples=max_samples,
-        output_path=Path(output_path) if output_path else None,
-        log_requests=log_requests,
-        dataset_seed=dataset_seed,
-        request_timeout=request_timeout,
-    )
+    try:
+        result = evaluate(
+            modalities=list(modalities),
+            base_url=base_url,
+            model=model,
+            api_key=api_key,
+            max_concurrent=max_concurrent,
+            gen_kwargs=_parse_kwargs(gen_kwargs),
+            max_samples=max_samples,
+            output_path=Path(output_path) if output_path else None,
+            log_requests=log_requests,
+            dataset_seed=dataset_seed,
+            request_timeout=request_timeout,
+        )
+    except KeyboardInterrupt:
+        logger.info("Interrupted by user, exiting.")
+        raise SystemExit(130)
 
     _print_results_table(result)
