@@ -130,7 +130,7 @@ class ApiConfig:
     model: str
     api_key: str = ""
     max_concurrent: int = 8
-    timeout: int = 300
+    timeout: int = 30
     gen_kwargs: dict[str, Any] = field(default_factory=dict)
 
 
