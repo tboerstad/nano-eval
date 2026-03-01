@@ -290,7 +290,7 @@ def main(
             request_timeout=request_timeout,
         )
     except KeyboardInterrupt:
-        logger.info("Interrupted by user, exiting.")
+        logger.info("Evaluation cancelled (KeyboardInterrupt).")
         raise SystemExit(130)
 
     _print_results_table(result)
