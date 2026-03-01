@@ -7,43 +7,27 @@ import json
 import logging
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any
 
 import click
 import httpx
 
-__all__ = ["evaluate", "EvalResult", "Metrics", "TaskResult"]
+if TYPE_CHECKING:
+    from core import EvalResult
 
-# Defaults — single source of truth for CLI, evaluate(), and ApiConfig.
-DEFAULT_MAX_CONCURRENT = 8
-DEFAULT_REQUEST_TIMEOUT = 30
-DEFAULT_EXTRA_REQUEST_PARAMS = "temperature=0,max_tokens=256,seed=42"
+__all__ = ["evaluate", "EvalResult", "Metrics", "TaskResult"]  # noqa: F822
 
 logger = logging.getLogger("nano_eval")
 
 
-class Metrics(TypedDict):
-    accuracy: float
-    accuracy_stderr: float
+def __getattr__(name: str) -> Any:
+    """Lazy re-export of domain types from core (avoids importing heavy deps at module level)."""
+    if name in ("Metrics", "TaskResult", "EvalResult"):
+        from core import EvalResult, Metrics, TaskResult
 
-
-class TaskResult(TypedDict):
-    elapsed_seconds: float
-    metrics: Metrics
-    num_samples: int
-    samples_hash: str
-    task: str
-    modality: str
-    total_input_tokens: int
-    total_output_tokens: int
-    tokens_per_second: float
-
-
-class EvalResult(TypedDict):
-    config: dict[str, Any]
-    framework_version: str
-    results: dict[str, TaskResult]
-    total_seconds: float
+        globals().update(Metrics=Metrics, TaskResult=TaskResult, EvalResult=EvalResult)
+        return globals()[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class _LevelPrefixFormatter(logging.Formatter):
@@ -122,16 +106,16 @@ def evaluate(
     base_url: str | None = None,
     model: str | None = None,
     api_key: str = "",
-    max_concurrent: int = DEFAULT_MAX_CONCURRENT,
+    max_concurrent: int = 8,
     gen_kwargs: dict[str, Any] | None = None,
     max_samples: int | None = None,
     output_path: Path | None = None,
     log_requests: bool = False,
     dataset_seed: int | None = None,
-    request_timeout: int = DEFAULT_REQUEST_TIMEOUT,
+    request_timeout: int = 30,
 ) -> EvalResult:
     """Run evaluations for specified modalities and return results dict."""
-    from core import ApiConfig, run_task
+    from core import ApiConfig, EvalResult, TaskResult, run_task
     from tasks import TASKS
 
     if base_url is None:
@@ -228,11 +212,11 @@ def _print_results_table(result: EvalResult) -> None:
 )
 @click.option("--model", help="Model name; auto-detected if endpoint serves one model")
 @click.option("--api-key", default="", help="Bearer token for API authentication")
-@click.option("--max-concurrent", default=DEFAULT_MAX_CONCURRENT, show_default=True)
+@click.option("--max-concurrent", default=8, show_default=True)
 @click.option(
     "--extra-request-params",
     "gen_kwargs",
-    default=DEFAULT_EXTRA_REQUEST_PARAMS,
+    default="temperature=0,max_tokens=256,seed=42",
     show_default=True,
     help="API params as key=value,...",
 )
@@ -255,7 +239,7 @@ def _print_results_table(result: EvalResult) -> None:
 )
 @click.option(
     "--request-timeout",
-    default=DEFAULT_REQUEST_TIMEOUT,
+    default=30,
     show_default=True,
     help="Timeout in seconds for each API request",
 )
