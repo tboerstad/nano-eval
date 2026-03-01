@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import hashlib
 import logging
 import math
@@ -26,6 +27,7 @@ from tqdm.asyncio import tqdm_asyncio
 from nano_eval._types import (
     DEFAULT_MAX_CONCURRENT,
     DEFAULT_REQUEST_TIMEOUT,
+    CancellationToken,
     Metrics,
     TaskResult,
 )
@@ -167,6 +169,7 @@ async def complete(
     prompts: list[Prompt],
     config: ApiConfig,
     progress_desc: str = "Running evals",
+    cancel_token: CancellationToken | None = None,
 ) -> list[dict[str, Any] | None]:
     """Run batch of chat completions with concurrency control."""
     headers: dict[str, str] = {"Content-Type": "application/json"}
@@ -179,24 +182,50 @@ async def complete(
         headers=headers,
         trust_env=True,
     ) as client:
-        tasks: list[asyncio.Task[dict[str, Any] | None]] = []
-        for prompt in prompts:
+        results: list[dict[str, Any] | None] = [None] * len(prompts)
+
+        async def _do_request(idx: int) -> dict[str, Any] | None:
             payload: dict[str, Any] = {
                 "model": config.model,
-                "messages": prompt.to_messages(),
+                "messages": prompts[idx].to_messages(),
                 **config.gen_kwargs,
             }
-            tasks.append(asyncio.create_task(_request(client, config.url, payload)))
+            r = await _request(client, config.url, payload)
+            results[idx] = r
+            return r
+
+        tasks: list[asyncio.Task[dict[str, Any] | None]] = [
+            asyncio.create_task(_do_request(i)) for i in range(len(prompts))
+        ]
+
+        watcher: asyncio.Task[None] | None = None
+        if cancel_token is not None:
+            cancel_event = cancel_token._get_event()
+
+            async def _watch_cancel() -> None:
+                await cancel_event.wait()
+                for t in tasks:
+                    if not t.done():
+                        t.cancel()
+
+            watcher = asyncio.create_task(_watch_cancel())
 
         try:
-            return list(
-                await tqdm_asyncio.gather(*tasks, desc=progress_desc, leave=False)
-            )
+            await tqdm_asyncio.gather(*tasks, desc=progress_desc, leave=False)
         except BaseException:
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+            if cancel_token is not None and cancel_token.cancelled:
+                return results
             raise
+        finally:
+            if watcher is not None:
+                watcher.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await watcher
+
+        return results
 
 
 def _encode_image(image: Any) -> str:
@@ -233,6 +262,7 @@ async def run_task(
     modality: str,
     max_samples: int | None = None,
     seed: int | None = None,
+    cancel_token: CancellationToken | None = None,
 ) -> tuple[TaskResult, list[dict[str, Any]]]:
     """Evaluate a task: load samples, run inference, compute scores."""
     samples = task.load_samples(max_samples, seed)
@@ -244,7 +274,9 @@ async def run_task(
         f"{len(samples)} samples, up to {config.max_concurrent} concurrent requests"
     )
     t0 = time.perf_counter()
-    raw_responses = await complete(prompts, config, f"Running {modality} eval")
+    raw_responses = await complete(
+        prompts, config, f"Running {modality} eval", cancel_token
+    )
     elapsed = time.perf_counter() - t0
 
     timeout_count = sum(1 for r in raw_responses if r is None)

@@ -14,7 +14,7 @@ import respx
 from click.testing import CliRunner
 from httpx import Response
 
-from nano_eval import main
+from nano_eval import CancellationToken, evaluate, main
 from nano_eval.tasks.chartqa import chartqa
 from nano_eval.tasks.gsm8k import gsm8k_cot_llama
 
@@ -285,6 +285,62 @@ class TestE2E:
             .split("\n")
         ]
         assert len(requests) == 8
+
+    def test_cancellation_returns_partial_results(self, tmp_path):
+        """Cancellation via token returns partial results instead of crashing."""
+        real_samples = gsm8k_cot_llama.load_samples(10)
+        cancel_token = CancellationToken()
+        call_count = 0
+
+        def api_response(request):
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 3:
+                cancel_token.cancel()
+            body = json.loads(request.content)
+            last_user_msg = [m for m in body["messages"] if m["role"] == "user"][-1]
+            prompt = last_user_msg["content"]
+            h = hashlib.md5(prompt.encode()).hexdigest()[:6]
+            content = GSM8K_RESPONSES[h]
+            return Response(
+                200,
+                json={
+                    "choices": [
+                        {"message": {"content": content}, "finish_reason": "stop"}
+                    ],
+                    "usage": {
+                        "prompt_tokens": 10,
+                        "completion_tokens": 5,
+                        "total_tokens": 15,
+                    },
+                },
+            )
+
+        with respx.mock:
+            respx.get("http://test.com/v1/chat/completions").mock(
+                return_value=Response(200)
+            )
+            respx.post("http://test.com/v1/chat/completions").mock(
+                side_effect=api_response
+            )
+
+            with patch.object(
+                type(gsm8k_cot_llama), "load_samples", return_value=real_samples
+            ):
+                result = evaluate(
+                    modalities=["text"],
+                    base_url="http://test.com/v1",
+                    model="test",
+                    max_samples=10,
+                    output_path=tmp_path,
+                    log_requests=True,
+                    cancel_token=cancel_token,
+                )
+
+        assert result["cancelled"] is True
+        task_result = result["results"]["text"]
+        assert task_result["num_samples"] > 0
+        assert task_result["num_samples"] <= 10
 
 
 class TestCLI:

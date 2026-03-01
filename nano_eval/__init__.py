@@ -5,23 +5,28 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import signal
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import click
 import httpx
+
+if TYPE_CHECKING:
+    from nano_eval.core import ApiConfig
 
 from nano_eval._types import (
     DEFAULT_EXTRA_REQUEST_PARAMS,
     DEFAULT_MAX_CONCURRENT,
     DEFAULT_REQUEST_TIMEOUT,
+    CancellationToken,
     EvalResult,
     Metrics,
     TaskResult,
 )
 
-__all__ = ["evaluate", "EvalResult", "Metrics", "TaskResult"]
+__all__ = ["evaluate", "CancellationToken", "EvalResult", "Metrics", "TaskResult"]
 
 logger = logging.getLogger("nano_eval")
 
@@ -97,6 +102,58 @@ def _list_models(base_url: str, api_key: str = "") -> list[str]:
     return [model["id"] for model in resp.json().get("data", [])]
 
 
+async def _evaluate_async(
+    modalities: list[str],
+    config: ApiConfig,
+    max_samples: int | None,
+    dataset_seed: int | None,
+    cancel_token: CancellationToken,
+    results: dict[str, TaskResult],
+    request_logs: dict[str, list[dict[str, Any]]],
+) -> None:
+    """Run the modality evaluation loop with SIGINT-based cancellation.
+
+    Results are written into the *results* and *request_logs* dicts so that
+    partial progress survives a KeyboardInterrupt from a second Ctrl+C.
+    """
+    from nano_eval.core import run_task
+    from nano_eval.tasks import TASKS
+
+    loop = asyncio.get_running_loop()
+
+    def _on_sigint() -> None:
+        cancel_token.cancel()
+        logger.info(
+            "\nCancelling after in-flight requests complete… "
+            "(Ctrl+C again to force quit)"
+        )
+        try:
+            loop.remove_signal_handler(signal.SIGINT)
+        except (NotImplementedError, RuntimeError):
+            pass
+
+    try:
+        loop.add_signal_handler(signal.SIGINT, _on_sigint)
+    except NotImplementedError:
+        pass  # Windows
+
+    try:
+        for modality in modalities:
+            if cancel_token.cancelled:
+                break
+            task = TASKS[modality]
+            result, logs = await run_task(
+                task, config, modality, max_samples, dataset_seed, cancel_token
+            )
+            results[modality] = result
+            request_logs[modality] = logs
+    finally:
+        try:
+            loop.remove_signal_handler(signal.SIGINT)
+        except (NotImplementedError, RuntimeError):
+            pass
+
+
 def evaluate(
     modalities: list[str],
     base_url: str | None = None,
@@ -109,10 +166,14 @@ def evaluate(
     log_requests: bool = False,
     dataset_seed: int | None = None,
     request_timeout: int = DEFAULT_REQUEST_TIMEOUT,
+    cancel_token: CancellationToken | None = None,
 ) -> EvalResult:
     """Run evaluations for specified modalities and return results dict."""
-    from nano_eval.core import ApiConfig, run_task
+    from nano_eval.core import ApiConfig
     from nano_eval.tasks import TASKS
+
+    if cancel_token is None:
+        cancel_token = CancellationToken()
 
     if base_url is None:
         base_url = _detect_base_url(api_key)
@@ -147,27 +208,42 @@ def evaluate(
     if output_path:
         output_path.mkdir(parents=True, exist_ok=True)
 
-    results: dict[str, TaskResult] = {}
     for modality in modalities:
         if modality not in TASKS:
             raise ValueError(
                 f"Unknown modality: {modality}. Available: {list(TASKS.keys())}"
             )
-        task = TASKS[modality]
-        result, request_logs = asyncio.run(
-            run_task(task, config, modality, max_samples, dataset_seed)
+
+    results: dict[str, TaskResult] = {}
+    all_request_logs: dict[str, list[dict[str, Any]]] = {}
+
+    try:
+        asyncio.run(
+            _evaluate_async(
+                modalities,
+                config,
+                max_samples,
+                dataset_seed,
+                cancel_token,
+                results,
+                all_request_logs,
+            )
         )
+    except KeyboardInterrupt:
+        cancel_token.cancel()
+
+    for modality, logs in all_request_logs.items():
         if output_path and log_requests:
             requests_file = output_path / f"request_log_{modality}.jsonl"
             with open(requests_file, "w") as f:
-                for entry in request_logs:
+                for entry in logs:
                     f.write(json.dumps(entry, ensure_ascii=False) + "\n")
             logger.info(
                 f"Request logs for {modality} dataset written to: {requests_file}"
             )
-        results[modality] = result
 
     eval_result = EvalResult(
+        cancelled=cancel_token.cancelled,
         config={"max_samples": max_samples, "model": config.model},
         framework_version=version("nano-eval"),
         results=results,
@@ -178,7 +254,10 @@ def evaluate(
         results_file = output_path / "eval_results.json"
         with open(results_file, "w") as f:
             json.dump(eval_result, f, indent=2)
-        logger.info(f"Evaluation result written to: {results_file}")
+        if cancel_token.cancelled:
+            logger.info(f"Partial results written to: {results_file}")
+        else:
+            logger.info(f"Evaluation result written to: {results_file}")
 
     return eval_result
 
@@ -289,4 +368,6 @@ def main(
         request_timeout=request_timeout,
     )
 
+    if result["cancelled"]:
+        print("\nEvaluation cancelled. Partial results:")
     _print_results_table(result)
