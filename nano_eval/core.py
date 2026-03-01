@@ -23,7 +23,7 @@ from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
 from PIL import Image
 from tqdm.asyncio import tqdm_asyncio
 
-from nano_eval import (
+from nano_eval._types import (
     DEFAULT_MAX_CONCURRENT,
     DEFAULT_REQUEST_TIMEOUT,
     Metrics,
