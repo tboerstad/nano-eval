@@ -131,8 +131,8 @@ def evaluate(
     request_timeout: int = DEFAULT_REQUEST_TIMEOUT,
 ) -> EvalResult:
     """Run evaluations for specified modalities and return results dict."""
-    from core import ApiConfig, run_task
-    from tasks import TASKS
+    from nano_eval.core import ApiConfig, run_task
+    from nano_eval.tasks import TASKS
 
     if base_url is None:
         base_url = _detect_base_url(api_key)
@@ -310,7 +310,3 @@ def main(
     )
 
     _print_results_table(result)
-
-
-if __name__ == "__main__":
-    main()

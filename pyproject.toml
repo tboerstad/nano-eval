@@ -38,8 +38,7 @@ Issues = "https://github.com/tboerstad/nano-eval/issues"
 dev = ["pytest>=7.0.0", "pytest-cov>=4.0.0", "ruff>=0.1.0", "prek>=0.2.0", "respx>=0.20.0", "ty>=0.0.1"]
 
 [tool.setuptools]
-py-modules = ["nano_eval", "core"]
-packages = ["tasks"]
+packages = ["nano_eval", "nano_eval.tasks"]
 
 [tool.ruff.lint]
 extend-select = ["I", "UP"]
@@ -47,4 +46,4 @@ ignore = ["E501"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
-known-first-party = ["nano_eval", "core", "tasks"]
+known-first-party = ["nano_eval"]

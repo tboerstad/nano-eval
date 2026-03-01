@@ -6,7 +6,7 @@ import re
 import string
 from typing import Any
 
-from core import Prompt, Sample, Task
+from nano_eval.core import Prompt, Sample, Task
 
 _GSM8K_REVISION = "cc7b047b6e5bb11b4f1af84efc572db110a51b3c"
 
