@@ -202,7 +202,7 @@ async def complete(
 def _encode_image(image: Any) -> str:
     """Encode PIL image to base64, or pass through base64 string."""
     if isinstance(image, str):
-        if image.startswith("http"):
+        if image.startswith(("http://", "https://")):
             raise ValueError("Remote image URLs are not supported.")
         return image
 

@@ -59,15 +59,16 @@ def _check_endpoint(url: str, api_key: str = "") -> None:
     """Verify API endpoint is reachable."""
     try:
         resp = httpx.get(url, headers=_auth_headers(api_key), timeout=10)
-        if resp.status_code in (401, 403):
-            raise ValueError(
-                f"Authentication failed ({resp.status_code}) at {url}\n"
-                "Check your --api-key value."
-            )
-        if resp.status_code not in (404, 405):
-            resp.raise_for_status()
-    except httpx.HTTPError:
+    except httpx.ConnectError:
         raise ValueError(f"No response from {url}\nIs the server running?")
+    if resp.status_code in (401, 403):
+        raise ValueError(
+            f"Authentication failed ({resp.status_code}) at {url}\n"
+            "Check your --api-key value."
+        )
+    # 404/405 are expected — GET on a POST-only endpoint returns these
+    if resp.status_code not in (404, 405):
+        resp.raise_for_status()
 
 
 def _detect_base_url(api_key: str = "") -> str:
@@ -184,11 +185,11 @@ def evaluate(
 
 
 def _print_results_table(result: EvalResult) -> None:
-    print("\nTask    Accuracy  Samples  Duration  Output Tokens  Per Req Tok/s")
-    print("------  --------  -------  --------  -------------  -------------")
+    print("\nModality  Accuracy  Samples  Duration  Output Tokens  Tok/s (avg)")
+    print("--------  --------  -------  --------  -------------  -----------")
     for r in result["results"].values():
         print(
-            f"{r['modality']:<6}  {r['metrics']['accuracy']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}  {int(r['tokens_per_second']):>13}"
+            f"{r['modality']:<8}  {r['metrics']['accuracy']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}  {int(r['tokens_per_second']):>11}"
         )
 
 

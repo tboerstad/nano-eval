@@ -38,21 +38,21 @@ GSM8K_RESPONSES = {
 # ChartQA: 10 mock responses keyed by prompt hash (8 correct, 2 wrong = 80% accuracy)
 # fmt: off
 CHARTQA_RESPONSES = {
-    "beb96e": "Final Answer: 6",      # ✓ target=6
-    "5349c3": "**Final Answer:** 3",  # ✓ target=3 (markdown bold)
-    "173532": "Final Answer: No",     # ✓ target=No
-    "9e8414": "Final Answer: 14",     # ✓ target=14
-    "15ac1f": "Based on analysis, the answer: 62.",  # ✓ target=62 (trailing punct, non-standard prefix)
-    "2f2353": "Looking at the chart: FINAL ANSWER: 999. Wait, I need to recount... FINAL ANSWER: 23",  # ✓ target=23 (last-match)
-    "5894e6": "FINAL ANSWER: wrong",  # ✗ target=Yes
-    "509bd4": "Final Answer: 3%",     # ✓ target=0.03 (percent/decimal equivalence)
-    "bad2cb": "Final Answer: 0.57",   # ✓ target=0.57
-    "9addd0": "FINAL ANSWER: wrong",  # ✗ target=Inspired
+    "05761a": "Final Answer: 6",      # ✓ target=6
+    "c38bd8": "**Final Answer:** 3",  # ✓ target=3 (markdown bold)
+    "508e3c": "Final Answer: No",     # ✓ target=No
+    "435bbd": "Final Answer: 14",     # ✓ target=14
+    "79f997": "Based on analysis, the answer: 62.",  # ✓ target=62 (trailing punct, non-standard prefix)
+    "fb8020": "Looking at the chart: FINAL ANSWER: 999. Wait, I need to recount... FINAL ANSWER: 23",  # ✓ target=23 (last-match)
+    "d5082c": "FINAL ANSWER: wrong",  # ✗ target=Yes
+    "2f9db2": "Final Answer: 3%",     # ✓ target=0.03 (percent/decimal equivalence)
+    "3e6fa7": "Final Answer: 0.57",   # ✓ target=0.57
+    "6276b3": "FINAL ANSWER: wrong",  # ✗ target=Inspired
 }
 # fmt: on
 
 GSM8K_HASH = "7e9d77f0de73bfe63bd9858b220417f93da9f99a1a3e9b8e248c5f87eab9ec6d"
-CHARTQA_HASH = "fc630d612ba41511d4d211d6849f8aec066be7f84dee4b2ba50fc2c5987b0af1"
+CHARTQA_HASH = "b2097356c7ac98f94414040a235c3a7eaea229b4f886595881a8467d008e4f50"
 
 
 class TestE2E:
