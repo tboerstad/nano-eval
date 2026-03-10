@@ -116,9 +116,7 @@ def evaluate(
 
     if base_url is None:
         base_url = _detect_base_url(api_key)
-        logger.info(
-            f"`base_url` not provided, using auto-detected endpoint: {base_url}"
-        )
+        logger.info(f"No endpoint provided, using auto-detected endpoint: {base_url}")
 
     base_url = base_url.rstrip("/")
     logger.info(f"Checking that endpoint is responding: {base_url}/chat/completions")
