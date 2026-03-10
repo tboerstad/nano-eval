@@ -116,9 +116,7 @@ def evaluate(
 
     if base_url is None:
         base_url = _detect_base_url(api_key)
-        logger.info(
-            f"`base_url` not provided, using auto-detected endpoint: {base_url}"
-        )
+        logger.info(f"No endpoint provided, using auto-detected endpoint: {base_url}")
 
     base_url = base_url.rstrip("/")
     logger.info(f"Checking that endpoint is responding: {base_url}/chat/completions")
@@ -128,7 +126,9 @@ def evaluate(
         models = _list_models(base_url, api_key)
         if len(models) == 1:
             model = models[0]
-            logger.info(f"`model` not provided, using auto-detected model: {model}")
+            logger.info(
+                f"No model name specified, using auto-detected model name: {model}"
+            )
         else:
             raise ValueError(
                 f"Auto-detecting model failed: found {len(models)} models: {', '.join(models)}. "
@@ -163,7 +163,7 @@ def evaluate(
                 for entry in request_logs:
                     f.write(json.dumps(entry, ensure_ascii=False) + "\n")
             logger.info(
-                f"Request logs for {modality} dataset written to: {requests_file}"
+                f"Prompts and responses for {modality} dataset written to: {requests_file}"
             )
         results[modality] = result
 
