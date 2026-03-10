@@ -126,7 +126,9 @@ def evaluate(
         models = _list_models(base_url, api_key)
         if len(models) == 1:
             model = models[0]
-            logger.info(f"No model name specified, using auto-detected model: {model}")
+            logger.info(
+                f"No model name specified, using auto-detected model name: {model}"
+            )
         else:
             raise ValueError(
                 f"Auto-detecting model failed: found {len(models)} models: {', '.join(models)}. "
