@@ -163,7 +163,7 @@ def evaluate(
                 for entry in request_logs:
                     f.write(json.dumps(entry, ensure_ascii=False) + "\n")
             logger.info(
-                f"Request logs for {modality} dataset written to: {requests_file}"
+                f"Prompts and responses for {modality} dataset written to: {requests_file}"
             )
         results[modality] = result
 
