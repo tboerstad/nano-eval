@@ -314,7 +314,7 @@ async def run_task(
         modality=modality,
         total_input_tokens=total_input,
         total_output_tokens=total_output,
-        mean_request_throughput=(total_input + total_output)
+        per_request_tokens_per_second=(total_input + total_output)
         / sum_of_request_durations_seconds
         if sum_of_request_durations_seconds
         else 0.0,
