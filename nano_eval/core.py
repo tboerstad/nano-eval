@@ -303,7 +303,7 @@ async def run_task(
 
     total_input = sum(r["input_tokens"] for r in responses)
     total_output = sum(r["output_tokens"] for r in responses)
-    total_duration = sum(r["duration_seconds"] for r in responses)
+    sum_of_request_durations_seconds = sum(r["duration_seconds"] for r in responses)
 
     result = TaskResult(
         elapsed_seconds=elapsed,
@@ -314,8 +314,9 @@ async def run_task(
         modality=modality,
         total_input_tokens=total_input,
         total_output_tokens=total_output,
-        tokens_per_second=(total_input + total_output) / total_duration
-        if total_duration
+        mean_request_throughput=(total_input + total_output)
+        / sum_of_request_durations_seconds
+        if sum_of_request_durations_seconds
         else 0.0,
     )
     return result, request_logs
