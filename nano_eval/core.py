@@ -150,6 +150,9 @@ async def _request(
     except httpx.TimeoutException:
         logger.warning(f"Request timed out after {time.perf_counter() - t0:.1f}s")
         return None
+    except httpx.HTTPError as exc:
+        logger.warning(f"Request failed: {exc}")
+        return None
     if resp.is_success:
         data = resp.json()
         choice = data["choices"][0]
@@ -160,7 +163,8 @@ async def _request(
             "output_tokens": data["usage"]["completion_tokens"],
             "duration_seconds": time.perf_counter() - t0,
         }
-    raise RuntimeError(f"Request failed: {resp.text}")
+    logger.warning(f"Request failed ({resp.status_code}): {resp.text}")
+    return None
 
 
 async def complete(
