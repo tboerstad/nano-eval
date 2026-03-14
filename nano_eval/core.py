@@ -148,10 +148,10 @@ async def _request(
     try:
         resp = await client.post(url, json=payload)
     except httpx.TimeoutException:
-        logger.warning(f"Request timed out after {time.perf_counter() - t0:.1f}s")
+        logger.warning("Request timed out")
         return None
     except httpx.HTTPError as exc:
-        logger.warning(f"Request failed after {time.perf_counter() - t0:.1f}s: {exc}")
+        logger.warning(f"Request failed: {exc}")
         return None
     if resp.is_success:
         data = resp.json()
@@ -163,9 +163,7 @@ async def _request(
             "output_tokens": data["usage"]["completion_tokens"],
             "duration_seconds": time.perf_counter() - t0,
         }
-    logger.warning(
-        f"Request failed ({resp.status_code}) after {time.perf_counter() - t0:.1f}s: {resp.text}"
-    )
+    logger.warning(f"Request failed ({resp.status_code}): {resp.text}")
     return None
 
 
