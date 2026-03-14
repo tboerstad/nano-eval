@@ -24,7 +24,7 @@ class TaskResult(TypedDict):
     modality: str
     total_input_tokens: int
     total_output_tokens: int
-    request_tokens_per_second: float
+    per_request_tokens_per_second: float
 
 
 class EvalResult(TypedDict):
