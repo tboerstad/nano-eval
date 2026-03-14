@@ -148,7 +148,7 @@ async def _request(
     try:
         resp = await client.post(url, json=payload)
     except httpx.TimeoutException:
-        logger.warning("Request timed out")
+        logger.warning(f"Request timed out after {time.perf_counter() - t0:.1f}s")
         return None
     except httpx.HTTPError as exc:
         logger.warning(f"Request failed: {exc}")
