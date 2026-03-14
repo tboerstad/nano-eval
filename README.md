@@ -93,7 +93,7 @@ When using `--output-path`, an `eval_results.json` file is generated:
       "modality": "text",
       "total_input_tokens": 106965,
       "total_output_tokens": 11873,
-      "mean_request_tokens_per_second": 7658.994842036105
+      "request_tokens_per_second": 7658.994842036105
     }
   },
   "total_seconds": 15.51
