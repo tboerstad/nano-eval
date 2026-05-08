@@ -275,6 +275,9 @@ def main(
     httpx_levels = [logging.WARNING, logging.WARNING, logging.INFO, logging.DEBUG]
     logging.getLogger("httpx").setLevel(httpx_levels[min(verbose, 3)])
 
+    if log_requests and not output_path:
+        raise click.UsageError("--log-requests requires --output-path")
+
     try:
         result = evaluate(
             modalities=list(modalities),
