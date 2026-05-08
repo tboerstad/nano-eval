@@ -275,7 +275,7 @@ async def run_task(
             )
 
     accuracy = sum(scores) / n if n else 0.0
-    stderr = math.sqrt(accuracy * (1 - accuracy) / n) if n else 0.0
+    stderr = math.sqrt(accuracy * (1 - accuracy) / n) if n > 0 else 0.0
     logger.debug(
         f"{task.name}: accuracy={accuracy:.4f}+/-{stderr:.4f} ({elapsed:.2f}s)"
     )
