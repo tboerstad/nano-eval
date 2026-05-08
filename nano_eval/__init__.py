@@ -184,11 +184,11 @@ def evaluate(
 
 
 def _print_results_table(result: EvalResult) -> None:
-    print("\nTask             Accuracy  Samples  Duration  Output Tokens  Per Req Tok/s")
-    print("---------------  --------  -------  --------  -------------  -------------")
+    print("\nModality  Accuracy  Samples  Duration  Output Tokens  Per Req Tok/s")
+    print("--------  --------  -------  --------  -------------  -------------")
     for r in result["results"].values():
         print(
-            f"{r['task']:<15}  {r['metrics']['accuracy']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}  {int(r['per_request_tokens_per_second']):>13}"
+            f"{r['modality']:<8}  {r['metrics']['accuracy']:>7.1%}  {r['num_samples']:>7}  {int(r['elapsed_seconds']):>7}s  {r['total_output_tokens']:>13}  {int(r['per_request_tokens_per_second']):>13}"
         )
 
 
