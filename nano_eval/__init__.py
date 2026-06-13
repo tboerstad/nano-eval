@@ -59,15 +59,20 @@ def _check_endpoint(url: str, api_key: str = "") -> None:
     """Verify API endpoint is reachable."""
     try:
         resp = httpx.get(url, headers=_auth_headers(api_key), timeout=10)
-        if resp.status_code in (401, 403):
-            raise ValueError(
-                f"Authentication failed ({resp.status_code}) at {url}\n"
-                "Check your --api-key value."
-            )
-        if resp.status_code not in (404, 405):
+    except httpx.HTTPError as exc:
+        raise ValueError(f"No response from {url}\nIs the server running?") from exc
+    if resp.status_code in (401, 403):
+        raise ValueError(
+            f"Authentication failed ({resp.status_code}) at {url}\n"
+            "Check your --api-key value."
+        )
+    if resp.status_code not in (404, 405):
+        try:
             resp.raise_for_status()
-    except httpx.HTTPError:
-        raise ValueError(f"No response from {url}\nIs the server running?")
+        except httpx.HTTPStatusError as exc:
+            raise ValueError(
+                f"Endpoint {url} returned {resp.status_code} {resp.reason_phrase}"
+            ) from exc
 
 
 def _detect_base_url(api_key: str = "") -> str:

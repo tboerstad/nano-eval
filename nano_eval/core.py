@@ -11,6 +11,7 @@ import time
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import cached_property
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,11 @@ class Prompt:
     text: str | list[dict[str, str]]
     images: list[Any] = field(default_factory=list)
 
+    @cached_property
+    def encoded_images(self) -> list[str]:
+        """Base64-encoded images, computed once and reused for payload and hashing."""
+        return [b64 for img in self.images if (b64 := _encode_image(img))]
+
     def to_messages(self) -> list[dict[str, Any]]:
         if self.images:
             assert isinstance(self.text, str)
@@ -48,8 +54,7 @@ class Prompt:
                     "type": "image_url",
                     "image_url": {"url": f"data:image/png;base64,{b64}"},
                 }
-                for img in self.images
-                if (b64 := _encode_image(img))
+                for b64 in self.encoded_images
             ]
             content.append({"type": "text", "text": self.text})
             return [{"role": "user", "content": content}]
@@ -225,8 +230,8 @@ def compute_samples_hash(samples: list[Sample]) -> str:
     hasher = hashlib.sha256()
     for s in samples:
         hasher.update(s.prompt.text_repr().encode())
-        for img in s.prompt.images:
-            hasher.update(_encode_image(img).encode())
+        for b64 in s.prompt.encoded_images:
+            hasher.update(b64.encode())
         hasher.update(s.target.encode())
     return hasher.hexdigest()
 
